@@ -349,6 +349,7 @@ private fun Environment.clientMetaData(publicUrl: String): ClientMetaData {
             authorizationEncryptedResponseAlg,
             authorizationEncryptedResponseEnc,
         ) ?: defaultJarmOption,
+        zkpOption = WalletApi.requestZkpKey(publicUrl)
     )
 }
 

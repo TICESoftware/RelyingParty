@@ -162,6 +162,13 @@ class WalletApi(
         const val PRESENTATION_DEFINITION_PATH = "/wallet/pd/{requestId}"
 
         /**
+         * Path template for the route for
+         * getting the JWKS containing parameters for the
+         * zero-knowledge proof
+         */
+        const val ZKP_JWK_SET_PATH = "/wallet/zkp/{requestId}/jwks.json"
+
+        /**
          * Path template for the route for getting the JWKS that contains the Ephemeral Key for JARM.
          */
         const val JARM_JWK_SET_PATH = "/wallet/jarm/{requestId}/jwks.json"
@@ -195,6 +202,9 @@ class WalletApi(
 
             return directPostJwt() ?: directPost()
         }
+
+        fun requestZkpKey(baseUrl: String): EmbedOption.ByReference<RequestId> =
+            urlBuilder(baseUrl = baseUrl, pathTemplate = ZKP_JWK_SET_PATH)
 
         fun requestJwtByReference(baseUrl: String): EmbedOption.ByReference<RequestId> =
             urlBuilder(baseUrl = baseUrl, pathTemplate = REQUEST_JWT_PATH)
