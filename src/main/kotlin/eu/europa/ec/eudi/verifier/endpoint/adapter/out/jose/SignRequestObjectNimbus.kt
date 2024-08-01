@@ -134,7 +134,7 @@ class SignRequestObjectNimbus : SignRequestObject {
             jwkSet?.let { this.jwkSet = it }
             jwkSetUri?.let { this.jwkSetURI = it.toURI() }
             setCustomField("subject_syntax_types_supported", c.subjectSyntaxTypesSupported)
-            setCustomField("vp_formats", "TODO") // needs to be added to ClientMetadata class etc.
+            setCustomField("vp_formats", c.vpFormats)
             setCustomField("vp_token_zkp_key_uri", (c.zkpOption as ByReference).buildUrl)
 
             if ("direct_post.jwt" == responseMode) {

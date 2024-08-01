@@ -122,6 +122,7 @@ internal fun beans(clock: Clock) = beans {
     bean { GenerateEphemeralEncryptionKeyPairNimbus }
     bean { GetWalletResponseLive(ref()) }
     bean { GetJarmJwksLive(ref()) }
+    bean { PostZkpJwkRequestLive(ref(), ref()) }
 
     //
     // Scheduled
@@ -144,6 +145,7 @@ internal fun beans(clock: Clock) = beans {
             ref(),
             ref(),
             ref<VerifierConfig>().clientIdScheme.jarSigning.key,
+            ref(),
         )
         val verifierApi = VerifierApi(ref(), ref())
         val staticContent = StaticContent()
@@ -349,7 +351,11 @@ private fun Environment.clientMetaData(publicUrl: String): ClientMetaData {
             authorizationEncryptedResponseAlg,
             authorizationEncryptedResponseEnc,
         ) ?: defaultJarmOption,
-        zkpOption = WalletApi.requestZkpKey(publicUrl)
+        zkpOption = WalletApi.requestZkpKey(publicUrl),
+        vpFormats = mapOf(
+            "vc+sd-jwt+zkp" to VpFormat(listOf("secp256r1-sha256")),
+            "mso_mdoc+zkp" to VpFormat(listOf("secp256r1-sha256"))
+        )
     )
 }
 
