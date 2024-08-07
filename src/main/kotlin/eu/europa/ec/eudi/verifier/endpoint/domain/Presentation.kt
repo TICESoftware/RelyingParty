@@ -268,7 +268,6 @@ sealed interface Presentation {
         }
     }
 
-
     class TimedOut private constructor(
         override val id: TransactionId,
         override val initiatedAt: Instant,
@@ -321,7 +320,6 @@ sealed interface Presentation {
         }
     }
 }
-
 
 fun Presentation.isExpired(at: Instant): Boolean {
     fun Instant.isBeforeOrEqual(at: Instant) = isBefore(at) || this == at

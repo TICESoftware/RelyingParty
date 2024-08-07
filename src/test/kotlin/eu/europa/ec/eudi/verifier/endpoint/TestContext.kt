@@ -41,6 +41,10 @@ import org.springframework.context.support.GenericApplicationContext
 import org.springframework.core.annotation.AliasFor
 import org.springframework.core.io.ClassPathResource
 import org.springframework.test.context.ContextConfiguration
+import java.net.URI
+import java.net.URL
+import java.net.URLConnection
+import java.net.URLStreamHandler
 import java.security.KeyStore
 import java.time.Clock
 import java.time.Instant
@@ -64,6 +68,10 @@ object TestContext {
             RSAKey.load(keystore, "client-id", "".toCharArray())
         }
     }
+
+    class VpFormat
+    private val vpFormatExample = VpFormat()
+    private val vpFormats = mapOf("exampleFormat" to vpFormatExample)
     val clientMetaData = ClientMetaData(
         jwkOption = ByValue,
         idTokenSignedResponseAlg = JWSAlgorithm.RS256.name,
@@ -71,6 +79,17 @@ object TestContext {
         idTokenEncryptedResponseEnc = EncryptionMethod.A128CBC_HS256.name,
         subjectSyntaxTypesSupported = listOf("urn:ietf:params:oauth:jwk-thumbprint", "did:example", "did:key"),
         jarmOption = ParseJarmOptionNimbus(null, JWEAlgorithm.ECDH_ES.name, "A256GCM")!!,
+        vpFormats = vpFormats,
+        zkpOption = EmbedOption.byReference {
+            URL.of(
+                URI("tt"),
+                object : URLStreamHandler() {
+                    override fun openConnection(u: URL?): URLConnection {
+                        TODO("Not yet implemented")
+                    }
+                },
+            )
+        },
     )
     val jarSigningConfig: SigningConfig = SigningConfig(rsaJwk, JWSAlgorithm.RS256)
     val clientIdScheme = ClientIdScheme.X509SanDns("client-id", jarSigningConfig)

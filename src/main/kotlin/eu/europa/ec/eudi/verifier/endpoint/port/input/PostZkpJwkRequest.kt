@@ -1,3 +1,18 @@
+/*
+ * Copyright (c) 2023 European Commission
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package eu.europa.ec.eudi.verifier.endpoint.port.input
 
 import arrow.core.raise.Raise
@@ -14,7 +29,6 @@ import java.security.interfaces.ECPublicKey
 import java.security.spec.X509EncodedKeySpec
 import java.util.*
 
-
 sealed interface ZkpJwkError {
     data class ProcessingError(val message: String, val error: Throwable) : ZkpJwkError
 }
@@ -23,7 +37,7 @@ data class ChallengeRequest(
     val id: String,
     val digest: String,
     val r: String,
-    val proofType: String
+    val proofType: String,
 )
 
 data class EphemeralKeyResponse(
@@ -32,7 +46,7 @@ data class EphemeralKeyResponse(
     val kty: String,
     val crv: String,
     val x: String,
-    val y: String
+    val y: String,
 )
 
 private const val publicKeyPEM = """
@@ -56,10 +70,8 @@ class PostZkpJwkRequestLive(
     private val storePresentation: StorePresentation,
 ) : PostZkpJwkRequest {
 
-
     context(Raise<ZkpJwkError>)
     override suspend operator fun invoke(request: ServerRequest, requestId: RequestId): List<EphemeralKeyResponse> {
-
         val pem = publicKeyPEM.replace("-----BEGIN PUBLIC KEY-----", "").replace("-----END PUBLIC KEY-----", "")
         val keyBytes = Base64.getDecoder().decode(pem)
         val keySpec = X509EncodedKeySpec(keyBytes)
@@ -93,7 +105,7 @@ class PostZkpJwkRequestLive(
                 kty = "EC",
                 crv = "P-256",
                 x = x,
-                y = y
+                y = y,
             )
         }
     }

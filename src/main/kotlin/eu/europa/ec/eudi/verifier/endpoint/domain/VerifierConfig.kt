@@ -78,7 +78,7 @@ sealed interface JarmOption {
 }
 
 data class VpFormat(
-    val proofType: List<String>
+    val proofType: List<String>,
 )
 
 /**
@@ -94,7 +94,7 @@ data class ClientMetaData(
     val subjectSyntaxTypesSupported: List<String>,
     val jarmOption: JarmOption,
     val zkpOption: EmbedOption<RequestId>,
-    val vpFormats: Map<String, VpFormat>
+    val vpFormats: Map<String, Any>,
 )
 
 /**

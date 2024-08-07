@@ -354,8 +354,8 @@ private fun Environment.clientMetaData(publicUrl: String): ClientMetaData {
         zkpOption = WalletApi.requestZkpKey(publicUrl),
         vpFormats = mapOf(
             "vc+sd-jwt+zkp" to VpFormat(listOf("secp256r1-sha256")),
-            "mso_mdoc+zkp" to VpFormat(listOf("secp256r1-sha256"))
-        )
+            "mso_mdoc+zkp" to VpFormat(listOf("secp256r1-sha256")),
+        ),
     )
 }
 

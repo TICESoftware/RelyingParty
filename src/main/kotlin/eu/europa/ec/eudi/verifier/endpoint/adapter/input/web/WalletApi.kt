@@ -64,7 +64,7 @@ class WalletApi(
         GET(JARM_JWK_SET_PATH, this@WalletApi::handleGetJarmJwks)
         POST(
             ZKP_JWK_SET_PATH,
-            this@WalletApi::handlePostZkpJwk
+            this@WalletApi::handlePostZkpJwk,
         )
     }
 
@@ -119,7 +119,8 @@ class WalletApi(
                 logger.info(
                     response.fold(
                         { "Verifier UI will poll for Wallet Response" },
-                        { "Wallet must redirect to ${it.redirectUri}" })
+                        { "Wallet must redirect to ${it.redirectUri}" },
+                    ),
                 )
                 ok().json().bodyValueAndAwait(response.getOrElse { JsonObject(emptyMap()) })
             },
