@@ -102,6 +102,7 @@ internal fun beans(clock: Clock) = beans {
             WalletApi.requestJwtByReference(env.publicUrl()),
             WalletApi.presentationDefinitionByReference(env.publicUrl()),
             ref(),
+            WalletApi.requestZkpKey(env.publicUrl()),
         )
     }
 
@@ -351,11 +352,6 @@ private fun Environment.clientMetaData(publicUrl: String): ClientMetaData {
             authorizationEncryptedResponseAlg,
             authorizationEncryptedResponseEnc,
         ) ?: defaultJarmOption,
-        zkpOption = WalletApi.requestZkpKey(publicUrl),
-        vpFormats = mapOf(
-            "vc+sd-jwt+zkp" to VpFormat(listOf("secp256r1-sha256")),
-            "mso_mdoc+zkp" to VpFormat(listOf("secp256r1-sha256")),
-        ),
     )
 }
 

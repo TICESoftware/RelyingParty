@@ -138,7 +138,7 @@ sealed interface Presentation {
     /**
      * A presentation process that has been just requested
      */
-    class Requested(
+    data class Requested(
         override val id: TransactionId,
         override val initiatedAt: Instant,
         override val type: PresentationType,
@@ -148,6 +148,7 @@ sealed interface Presentation {
         val responseMode: ResponseModeOption,
         val presentationDefinitionMode: EmbedOption<RequestId>,
         val getWalletResponseMethod: GetWalletResponseMethod,
+        val zkpOption: EmbedOption<RequestId>? = null,
     ) : Presentation
 
     /**

@@ -77,10 +77,6 @@ sealed interface JarmOption {
     ) : JarmOption
 }
 
-data class VpFormat(
-    val proofType: List<String>,
-)
-
 /**
  * By OpenID Connect Dynamic Client Registration specification
  *
@@ -93,8 +89,6 @@ data class ClientMetaData(
     val idTokenEncryptedResponseEnc: String,
     val subjectSyntaxTypesSupported: List<String>,
     val jarmOption: JarmOption,
-    val zkpOption: EmbedOption<RequestId>,
-    val vpFormats: Map<String, Any>,
 )
 
 /**
