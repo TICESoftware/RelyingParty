@@ -16,6 +16,7 @@ sonarqube = "5.0.0.4638"
 dependencycheck = "9.1.0"
 jacoco = "0.8.11"
 zkp = "main-SNAPSHOT"
+eudiLibJvmSdjwtKt = "0.5.1"
 
 
 [libraries]
@@ -27,6 +28,7 @@ bouncy-castle = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bou
 arrow-core = { module = "io.arrow-kt:arrow-core", version.ref = "arrow" }
 arrow-fx-coroutines = { module = "io.arrow-kt:arrow-fx-coroutines", version.ref = "arrow" }
 zkp = { group = "com.github.TICESoftware", name = "ZKP", version.ref = "zkp" }
+eudi-lib-jvm-sdjwt-kt = { module = "eu.europa.ec.eudi:eudi-lib-jvm-sdjwt-kt", version.ref = "eudiLibJvmSdjwtKt" }
 
 [plugins]
 foojay-resolver-convention = { id = "org.gradle.toolchains.foojay-resolver-convention", version.ref = "foojay" }
