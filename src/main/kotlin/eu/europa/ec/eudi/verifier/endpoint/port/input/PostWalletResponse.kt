@@ -21,7 +21,12 @@ import arrow.core.raise.Raise
 import arrow.core.raise.ensure
 import arrow.core.raise.ensureNotNull
 import arrow.core.some
+import eu.europa.ec.eudi.prex.JsonPath
 import eu.europa.ec.eudi.prex.PresentationSubmission
+import eu.europa.ec.eudi.sdjwt.JwtAndClaims
+import eu.europa.ec.eudi.sdjwt.KeyBindingVerifier
+import eu.europa.ec.eudi.sdjwt.SdJwt
+import eu.europa.ec.eudi.sdjwt.SdJwtVerifier
 import eu.europa.ec.eudi.verifier.endpoint.domain.*
 import eu.europa.ec.eudi.verifier.endpoint.domain.Presentation.RequestObjectRetrieved
 import eu.europa.ec.eudi.verifier.endpoint.port.out.cfg.CreateQueryWalletResponseRedirectUri
@@ -29,8 +34,11 @@ import eu.europa.ec.eudi.verifier.endpoint.port.out.cfg.GenerateResponseCode
 import eu.europa.ec.eudi.verifier.endpoint.port.out.jose.VerifyJarmJwtSignature
 import eu.europa.ec.eudi.verifier.endpoint.port.out.persistence.LoadPresentationByRequestId
 import eu.europa.ec.eudi.verifier.endpoint.port.out.persistence.StorePresentation
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import java.time.Clock
 
 /**
@@ -154,6 +162,26 @@ class PostWalletResponseLive(
         //   i.e. if format is e.g. `vc+sd-jwt+zkp`, call `ZKPVerifier(...).verifyChallenge(transactionId, VpTokenFormat.SDJWT, responseObject.vpToken`
         //   (ZKPVerifier should be initialized centrally having the issuer public key hardcoded for now)
 
+        // map through the response and call the proper verification methods for every descriptor
+        responseObject.presentationSubmission!!.descriptorMaps.map { descriptor ->
+            when (descriptor.format) {
+                "vc+sd-jwt" -> {
+                    val path = descriptor.path.value
+                    val sdJwt = responseObject.vpToken?.let { extractPresentation(it, path) }
+                    if (sdJwt != null) {
+                        // Perform SD-JWT verification here
+                        println("Extracted SD-JWT: $sdJwt")
+                    } else {
+                        // Handle error: SD-JWT not found
+                        println("SD-JWT not found at path: $path")
+                    }
+                }
+
+                "mso_mdoc" -> print("mso_mdoc+zkp")
+                "vc+sd-jwt+zkp", "mso_mdoc+zkp" -> print("vc+sd-jwt+zkp")
+            }
+        }
+
         // for this use case (let frontend display the submitted data) we store the wallet response
         // Put wallet response into presentation object and store into db
         val submitted = submit(presentation, responseObject).also { storePresentation(it) }
@@ -168,6 +196,31 @@ class PostWalletResponseLive(
 
             GetWalletResponseMethod.Poll -> None
         }
+    }
+
+//    private suspend fun checkSdJwtSignature() {
+//        val verifiedPresentationSdJwt: SdJwt.Presentation<JwtAndClaims> = runBlocking {
+//            val issuerKeyPair = loadRsaKey("/examplesIssuerKey.json")
+//            val jwtSignatureVerifier = RSASSAVerifier(issuerKeyPair).asJwtVerifier()
+//
+//            val unverifiedPresentationSdJwt = loadSdJwt("/examplePresentationSdJwt.txt")
+//            SdJwtVerifier.verifyPresentation(
+//                jwtSignatureVerifier = jwtSignatureVerifier,
+//                keyBindingVerifier = KeyBindingVerifier.MustNotBePresent,
+//                unverifiedSdJwt = unverifiedPresentationSdJwt,
+//            ).getOrThrow()
+//        }
+//    }
+
+    fun extractPresentation(vpToken: String, path: String): String? {
+        val jsonElement = Json.parseToJsonElement(vpToken)
+        if (jsonElement is JsonArray) {
+            val index = path.trim('$', '[', ']').toIntOrNull()
+            if (index != null && index in jsonElement.indices) {
+                return jsonElement[index].toString()
+            }
+        }
+        return null
     }
 
     context(Raise<WalletResponseValidationError>)
