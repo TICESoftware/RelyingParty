@@ -20,6 +20,8 @@ package eu.europa.ec.eudi.verifier.endpoint.port.input
 import arrow.core.raise.Raise
 import arrow.core.raise.ensure
 import arrow.core.raise.ensureNotNull
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.ObjectMapper
 import eu.europa.ec.eudi.prex.PresentationDefinition
 import eu.europa.ec.eudi.verifier.endpoint.domain.*
 import eu.europa.ec.eudi.verifier.endpoint.port.out.cfg.CreateQueryWalletResponseRedirectUri
@@ -149,7 +151,7 @@ class InitTransactionLive(
     private val requestJarByReference: EmbedOption.ByReference<RequestId>,
     private val presentationDefinitionByReference: EmbedOption.ByReference<RequestId>,
     private val createQueryWalletResponseRedirectUri: CreateQueryWalletResponseRedirectUri,
-
+    private val zkpOption: EmbedOption.ByReference<RequestId>,
 ) : InitTransaction {
 
     context(Raise<ValidationError>)
@@ -161,9 +163,8 @@ class InitTransactionLive(
         val responseMode = responseMode(initTransactionTO)
         val newEphemeralEcPublicKey = ephemeralEncryptionKeyPair(responseMode)
         val getWalletResponseMethod = getWalletResponseMethod(initTransactionTO)
-
         // Initialize presentation
-        val requestedPresentation = Presentation.Requested(
+        var requestedPresentation = Presentation.Requested(
             id = generateTransactionId(),
             initiatedAt = clock.instant(),
             requestId = generateRequestId(),
@@ -174,6 +175,18 @@ class InitTransactionLive(
             presentationDefinitionMode = presentationDefinitionMode(initTransactionTO),
             getWalletResponseMethod = getWalletResponseMethod,
         )
+
+        initTransactionTO.presentationDefinition?.format?.let { format ->
+            val objectMapper = ObjectMapper()
+            val json: JsonNode = objectMapper.valueToTree(format)
+
+            // add the zkp uri to the presentation if zkp is required
+            if (json.has("vc+sd-jwt+zkp") || json.has("mso_mdoc+zkp")) {
+                requestedPresentation = requestedPresentation.copy(
+                    zkpOption = zkpOption,
+                )
+            }
+        }
         // create request, which may update presentation
         val (updatedPresentation, request) = createRequest(requestedPresentation, jarMode(initTransactionTO))
 

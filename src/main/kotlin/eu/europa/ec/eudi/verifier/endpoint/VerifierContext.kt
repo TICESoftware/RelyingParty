@@ -102,6 +102,7 @@ internal fun beans(clock: Clock) = beans {
             WalletApi.requestJwtByReference(env.publicUrl()),
             WalletApi.presentationDefinitionByReference(env.publicUrl()),
             ref(),
+            WalletApi.requestZkpKey(env.publicUrl()),
         )
     }
 
@@ -122,6 +123,7 @@ internal fun beans(clock: Clock) = beans {
     bean { GenerateEphemeralEncryptionKeyPairNimbus }
     bean { GetWalletResponseLive(ref()) }
     bean { GetJarmJwksLive(ref()) }
+    bean { PostZkpJwkRequestLive(ref(), ref()) }
 
     //
     // Scheduled
@@ -144,6 +146,7 @@ internal fun beans(clock: Clock) = beans {
             ref(),
             ref(),
             ref<VerifierConfig>().clientIdScheme.jarSigning.key,
+            ref(),
         )
         val verifierApi = VerifierApi(ref(), ref())
         val staticContent = StaticContent()

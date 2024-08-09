@@ -144,7 +144,18 @@ class PostWalletResponseLive(
             )
         }
 
+        // generate response depending on response method (DirectPost or DirectPostJwt)
         val responseObject = responseObject(walletResponse, presentation)
+
+        // TODO: Find out which format is used (if `...+zkp` or not) using:
+        // responseObject.presentationSubmission!!.descriptorMaps
+
+        // TODO: Verify signature
+        //   i.e. if format is e.g. `vc+sd-jwt+zkp`, call `ZKPVerifier(...).verifyChallenge(transactionId, VpTokenFormat.SDJWT, responseObject.vpToken`
+        //   (ZKPVerifier should be initialized centrally having the issuer public key hardcoded for now)
+
+        // for this use case (let frontend display the submitted data) we store the wallet response
+        // Put wallet response into presentation object and store into db
         val submitted = submit(presentation, responseObject).also { storePresentation(it) }
 
         return when (val getWalletResponseMethod = presentation.getWalletResponseMethod) {

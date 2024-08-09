@@ -58,6 +58,7 @@ class InitTransactionTest {
                 verifierConfig,
                 EmbedOption.byReference { _ -> uri },
                 EmbedOption.byReference { _ -> uri },
+                EmbedOption.byReference { _ -> uri },
             )
 
             val jwtSecuredAuthorizationRequest = either { useCase(input) }.getOrElse { fail("Unexpected $it") }
@@ -91,6 +92,7 @@ class InitTransactionTest {
 
             val useCase = TestContext.initTransaction(
                 verifierConfig,
+                EmbedOption.byReference { _ -> uri },
                 EmbedOption.byReference { _ -> uri },
                 EmbedOption.byReference { _ -> uri },
             )
@@ -146,6 +148,7 @@ class InitTransactionTest {
                 verifierConfig,
                 EmbedOption.byReference { _ -> uri },
                 EmbedOption.byReference { _ -> uri },
+                EmbedOption.byReference { _ -> uri },
             )
 
             val jwtSecuredAuthorizationRequest = either { useCase(input) }.getOrElse { fail("Unexpected $it") }
@@ -171,6 +174,7 @@ class InitTransactionTest {
 
             val useCase: InitTransaction = TestContext.initTransaction(
                 verifierConfig,
+                EmbedOption.byReference { _ -> uri },
                 EmbedOption.byReference { _ -> uri },
                 EmbedOption.byReference { _ -> uri },
             )
@@ -200,6 +204,7 @@ class InitTransactionTest {
                 verifierConfig,
                 EmbedOption.byReference { _ -> uri },
                 EmbedOption.byReference { _ -> uri },
+                EmbedOption.byReference { _ -> uri },
             )
 
             // we expect the Authorization Request to contain a request that contains a presentation_definition_uri
@@ -219,6 +224,7 @@ class InitTransactionTest {
         runTest {
             val useCase: InitTransaction = TestContext.initTransaction(
                 verifierConfig,
+                EmbedOption.byReference { _ -> uri },
                 EmbedOption.byReference { _ -> uri },
                 EmbedOption.byReference { _ -> uri },
             )
@@ -277,6 +283,7 @@ class InitTransactionTest {
                 verifierConfig,
                 EmbedOption.byReference { _ -> uri },
                 EmbedOption.byReference { _ -> uri },
+                EmbedOption.byReference { _ -> uri },
             )
 
             either { useCase(input) }.getOrElse { fail("Unexpected $it") }
@@ -297,6 +304,7 @@ class InitTransactionTest {
 
             val useCase: InitTransaction = TestContext.initTransaction(
                 verifierConfig,
+                EmbedOption.byReference { _ -> uri },
                 EmbedOption.byReference { _ -> uri },
                 EmbedOption.byReference { _ -> uri },
             )
