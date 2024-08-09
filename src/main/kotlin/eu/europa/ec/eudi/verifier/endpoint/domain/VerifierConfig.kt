@@ -89,7 +89,6 @@ data class ClientMetaData(
     val idTokenEncryptedResponseEnc: String,
     val subjectSyntaxTypesSupported: List<String>,
     val jarmOption: JarmOption,
-    val zkpOption: EmbedOption<RequestId>,
 )
 
 /**

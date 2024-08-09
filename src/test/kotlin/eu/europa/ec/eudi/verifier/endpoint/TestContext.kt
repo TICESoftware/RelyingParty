@@ -64,6 +64,7 @@ object TestContext {
             RSAKey.load(keystore, "client-id", "".toCharArray())
         }
     }
+
     val clientMetaData = ClientMetaData(
         jwkOption = ByValue,
         idTokenSignedResponseAlg = JWSAlgorithm.RS256.name,
@@ -86,6 +87,7 @@ object TestContext {
         verifierConfig: VerifierConfig,
         requestJarByReference: EmbedOption.ByReference<RequestId>,
         presentationDefinitionByReference: EmbedOption.ByReference<RequestId>,
+        zkpOption: EmbedOption.ByReference<RequestId>,
     ): InitTransaction =
         InitTransactionLive(
             generatedTransactionId,
@@ -98,6 +100,8 @@ object TestContext {
             requestJarByReference,
             presentationDefinitionByReference,
             CreateQueryWalletResponseRedirectUri.Simple,
+            zkpOption,
+
         )
 
     fun getRequestObject(verifierConfig: VerifierConfig, presentationInitiatedAt: Instant): GetRequestObject =

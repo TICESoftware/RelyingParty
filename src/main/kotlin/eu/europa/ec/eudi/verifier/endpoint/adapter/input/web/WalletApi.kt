@@ -45,6 +45,7 @@ class WalletApi(
     private val postWalletResponse: PostWalletResponse,
     private val getJarmJwks: GetJarmJwks,
     private val signingKey: JWK,
+    private val postZkpJwkRequest: PostZkpJwkRequest,
 ) {
 
     private val logger: Logger = LoggerFactory.getLogger(WalletApi::class.java)
@@ -61,6 +62,10 @@ class WalletApi(
         )
         GET(GET_PUBLIC_JWK_SET_PATH) { _ -> handleGetPublicJwkSet() }
         GET(JARM_JWK_SET_PATH, this@WalletApi::handleGetJarmJwks)
+        POST(
+            ZKP_JWK_SET_PATH,
+            this@WalletApi::handlePostZkpJwk,
+        )
     }
 
     /**
@@ -111,7 +116,12 @@ class WalletApi(
         outcome.fold(
             ifRight = { response ->
                 logger.info("PostWalletResponse processed")
-                logger.info(response.fold({ "Verifier UI will poll for Wallet Response" }, { "Wallet must redirect to ${it.redirectUri}" }))
+                logger.info(
+                    response.fold(
+                        { "Verifier UI will poll for Wallet Response" },
+                        { "Wallet must redirect to ${it.redirectUri}" },
+                    ),
+                )
                 ok().json().bodyValueAndAwait(response.getOrElse { JsonObject(emptyMap()) })
             },
             ifLeft = { error ->
@@ -144,6 +154,29 @@ class WalletApi(
                 .contentType(MediaType.parseMediaType(JWKSet.MIME_TYPE))
                 .bodyValueAndAwait(queryResponse.value.toJSONObject(true))
         }
+    }
+
+    /**
+     * Handles the POST request for fetching the ephemeral keys used for the ZKP.
+     */
+
+    private suspend fun handlePostZkpJwk(request: ServerRequest): ServerResponse = try {
+        logger.info("Handling PostZkpJwk ...")
+        val requestId = request.requestId()
+        val outcome = either { postZkpJwkRequest(request, requestId) }
+        outcome.fold(
+            ifRight = { jwkSet: List<EphemeralKeyResponse> ->
+                logger.info("PostZkpJwk processed")
+                ok().json().bodyValueAndAwait(jwkSet)
+            },
+            ifLeft = { error: ZkpJwkError ->
+                logger.error("$error while handling post of ZkpJwk")
+                badRequest().buildAndAwait()
+            },
+        )
+    } catch (t: SerializationException) {
+        logger.error("While handling post of ZkpJwk, failed to decode JSON", t)
+        badRequest().buildAndAwait()
     }
 
     companion object {
