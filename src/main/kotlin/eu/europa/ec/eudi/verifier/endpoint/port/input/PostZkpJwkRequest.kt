@@ -49,7 +49,7 @@ data class EphemeralKeyResponse(
     val y: String,
 )
 
-private const val publicKeyPEM = """
+private const val issuerPublicKeyPEM = """
 -----BEGIN PUBLIC KEY-----
 MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEsFu+Nl1NXvC8RM/IXiXLu8MVA7X7
 mXT3Jnvb5uHxK/5JZxi0wqzGQ11KjZvUF8Ftc/oGAzWdPmTwGEg5ZD293g==
@@ -72,7 +72,7 @@ class PostZkpJwkRequestLive(
 
     context(Raise<ZkpJwkError>)
     override suspend operator fun invoke(request: ServerRequest, requestId: RequestId): List<EphemeralKeyResponse> {
-        val pem = publicKeyPEM.replace("-----BEGIN PUBLIC KEY-----", "").replace("-----END PUBLIC KEY-----", "")
+        val pem = issuerPublicKeyPEM.replace("-----BEGIN PUBLIC KEY-----", "").replace("-----END PUBLIC KEY-----", "")
         val keyBytes = Base64.getDecoder().decode(pem)
         val keySpec = X509EncodedKeySpec(keyBytes)
         val keyFactory = KeyFactory.getInstance("EC")
