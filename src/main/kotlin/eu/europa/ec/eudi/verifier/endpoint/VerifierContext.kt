@@ -284,7 +284,9 @@ private fun jarSigningConfig(environment: Environment, clock: Clock): SigningCon
 }
 
 fun getIssuerEcKey(environment: Environment): ECKey {
-    val issuerCert = environment.getRequiredProperty("verifier.issuerCert")
+    val issuerCert = environment.getRequiredProperty("verifier.issuer.cert")
+     val logger: Logger = LoggerFactory.getLogger(PostWalletResponseLive::class.java)
+    logger.info("ISSUERCERT: $issuerCert")
     val pemKey = "-----BEGIN CERTIFICATE-----\n" +
             "${issuerCert}\n" +
             "-----END CERTIFICATE-----"
