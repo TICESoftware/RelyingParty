@@ -21,25 +21,24 @@ import arrow.core.raise.Raise
 import arrow.core.raise.ensure
 import arrow.core.raise.ensureNotNull
 import arrow.core.some
-import eu.europa.ec.eudi.prex.JsonPath
+import com.nimbusds.jose.crypto.ECDSAVerifier
+import com.nimbusds.jose.jwk.ECKey
 import eu.europa.ec.eudi.prex.PresentationSubmission
-import eu.europa.ec.eudi.sdjwt.JwtAndClaims
-import eu.europa.ec.eudi.sdjwt.KeyBindingVerifier
-import eu.europa.ec.eudi.sdjwt.SdJwt
-import eu.europa.ec.eudi.sdjwt.SdJwtVerifier
+import eu.europa.ec.eudi.sdjwt.*
 import eu.europa.ec.eudi.verifier.endpoint.domain.*
+import eu.europa.ec.eudi.verifier.endpoint.domain.Jwt
 import eu.europa.ec.eudi.verifier.endpoint.domain.Presentation.RequestObjectRetrieved
 import eu.europa.ec.eudi.verifier.endpoint.port.out.cfg.CreateQueryWalletResponseRedirectUri
 import eu.europa.ec.eudi.verifier.endpoint.port.out.cfg.GenerateResponseCode
 import eu.europa.ec.eudi.verifier.endpoint.port.out.jose.VerifyJarmJwtSignature
 import eu.europa.ec.eudi.verifier.endpoint.port.out.persistence.LoadPresentationByRequestId
 import eu.europa.ec.eudi.verifier.endpoint.port.out.persistence.StorePresentation
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
 import java.time.Clock
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
+
 
 /**
  * Represent the Authorisation Response placed by wallet
@@ -53,6 +52,7 @@ data class AuthorisationResponseTO(
     val presentationSubmission: PresentationSubmission? = null,
 )
 
+
 sealed interface AuthorisationResponse {
 
     data class DirectPost(val response: AuthorisationResponseTO) : AuthorisationResponse
@@ -60,6 +60,9 @@ sealed interface AuthorisationResponse {
 }
 
 sealed interface WalletResponseValidationError {
+    data object InvalidFormat : WalletResponseValidationError
+    data object InvalidVPToken : WalletResponseValidationError
+    data object InvalidSDJwt : WalletResponseValidationError
     data object MissingState : WalletResponseValidationError
     data class PresentationDefinitionNotFound(val requestId: RequestId) : WalletResponseValidationError
 
@@ -136,7 +139,10 @@ class PostWalletResponseLive(
     private val verifierConfig: VerifierConfig,
     private val generateResponseCode: GenerateResponseCode,
     private val createQueryWalletResponseRedirectUri: CreateQueryWalletResponseRedirectUri,
+    private val getIssuerEcKey: ECKey
 ) : PostWalletResponse {
+
+    private val logger: Logger = LoggerFactory.getLogger(PostWalletResponseLive::class.java)
 
     context(Raise<WalletResponseValidationError>)
     override suspend operator fun invoke(walletResponse: AuthorisationResponse): Option<WalletResponseAcceptedTO> {
@@ -170,15 +176,21 @@ class PostWalletResponseLive(
                     val sdJwt = responseObject.vpToken?.let { extractPresentation(it, path) }
                     if (sdJwt != null) {
                         // Perform SD-JWT verification here
-                        println("Extracted SD-JWT: $sdJwt")
+                        checkSdJwtSignature(sdJwt)
+                        logger.info("Successfully verified the sdjwt")
+
                     } else {
                         // Handle error: SD-JWT not found
-                        println("SD-JWT not found at path: $path")
+                        logger.info("SD-JWT not found at path: $path")
+                        raise(WalletResponseValidationError.InvalidVPToken)
                     }
                 }
 
                 "mso_mdoc" -> print("mso_mdoc+zkp")
                 "vc+sd-jwt+zkp", "mso_mdoc+zkp" -> print("vc+sd-jwt+zkp")
+                else -> {
+                    raise(WalletResponseValidationError.InvalidFormat)
+                }
             }
         }
 
@@ -187,40 +199,14 @@ class PostWalletResponseLive(
         val submitted = submit(presentation, responseObject).also { storePresentation(it) }
 
         return when (val getWalletResponseMethod = presentation.getWalletResponseMethod) {
-            is GetWalletResponseMethod.Redirect ->
-                with(createQueryWalletResponseRedirectUri) {
-                    requireNotNull(submitted.responseCode) { "ResponseCode expected in Submitted state but not found" }
-                    val redirectUri = getWalletResponseMethod.redirectUri(submitted.responseCode)
-                    WalletResponseAcceptedTO(redirectUri.toExternalForm()).some()
-                }
+            is GetWalletResponseMethod.Redirect -> with(createQueryWalletResponseRedirectUri) {
+                requireNotNull(submitted.responseCode) { "ResponseCode expected in Submitted state but not found" }
+                val redirectUri = getWalletResponseMethod.redirectUri(submitted.responseCode)
+                WalletResponseAcceptedTO(redirectUri.toExternalForm()).some()
+            }
 
             GetWalletResponseMethod.Poll -> None
         }
-    }
-
-//    private suspend fun checkSdJwtSignature() {
-//        val verifiedPresentationSdJwt: SdJwt.Presentation<JwtAndClaims> = runBlocking {
-//            val issuerKeyPair = loadRsaKey("/examplesIssuerKey.json")
-//            val jwtSignatureVerifier = RSASSAVerifier(issuerKeyPair).asJwtVerifier()
-//
-//            val unverifiedPresentationSdJwt = loadSdJwt("/examplePresentationSdJwt.txt")
-//            SdJwtVerifier.verifyPresentation(
-//                jwtSignatureVerifier = jwtSignatureVerifier,
-//                keyBindingVerifier = KeyBindingVerifier.MustNotBePresent,
-//                unverifiedSdJwt = unverifiedPresentationSdJwt,
-//            ).getOrThrow()
-//        }
-//    }
-
-    fun extractPresentation(vpToken: String, path: String): String? {
-        val jsonElement = Json.parseToJsonElement(vpToken)
-        if (jsonElement is JsonArray) {
-            val index = path.trim('$', '[', ']').toIntOrNull()
-            if (index != null && index in jsonElement.indices) {
-                return jsonElement[index].toString()
-            }
-        }
-        return null
     }
 
     context(Raise<WalletResponseValidationError>)
@@ -233,6 +219,7 @@ class PostWalletResponseLive(
         val requestId = RequestId(state)
 
         val presentation = loadPresentationByRequestId(requestId)
+
         ensureNotNull(presentation) { WalletResponseValidationError.PresentationDefinitionNotFound(requestId) }
         ensure(presentation is RequestObjectRetrieved) {
             WalletResponseValidationError.PresentationNotInExpectedState(
@@ -240,6 +227,25 @@ class PostWalletResponseLive(
             )
         }
         return presentation
+    }
+
+    context(Raise<WalletResponseValidationError>)
+    private suspend fun checkSdJwtSignature(sdJwt: String): SdJwt.Presentation<JwtAndClaims> {
+        try {
+            val jwtSignatureVerifier = ECDSAVerifier(getIssuerEcKey).asJwtVerifier()
+
+            return SdJwtVerifier.verifyPresentation(
+                jwtSignatureVerifier = jwtSignatureVerifier,
+                keyBindingVerifier = KeyBindingVerifier.mustBePresentAndValid(),
+                unverifiedSdJwt = sdJwt,
+            ).getOrThrow()
+        } catch (e: SdJwtVerificationException) {
+            logger.error("SD-JWT Verification failed: ${e.reason}", e)
+            raise(WalletResponseValidationError.InvalidSDJwt)
+        } catch (e: Exception) {
+            logger.error("Unexpected error during SD-JWT Verification: ${e.message}", e)
+            raise(WalletResponseValidationError.InvalidSDJwt)
+        }
     }
 
     context(Raise<WalletResponseValidationError>)
