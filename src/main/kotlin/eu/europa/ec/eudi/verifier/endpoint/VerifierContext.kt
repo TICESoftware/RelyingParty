@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 package eu.europa.ec.eudi.verifier.endpoint
-
 import arrow.core.NonEmptyList
 import arrow.core.recover
 import arrow.core.some
@@ -44,6 +43,7 @@ import eu.europa.ec.eudi.verifier.endpoint.port.out.cfg.CreateQueryWalletRespons
 import eu.europa.ec.eudi.verifier.endpoint.port.out.cfg.GenerateResponseCode
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.boot.web.codec.CodecCustomizer
 import org.springframework.context.support.beans
@@ -57,7 +57,9 @@ import org.springframework.security.config.web.server.ServerHttpSecurity
 import org.springframework.security.config.web.server.invoke
 import org.springframework.web.cors.CorsConfiguration
 import org.springframework.web.cors.reactive.CorsConfigurationSource
+import java.io.ByteArrayInputStream
 import java.security.KeyStore
+import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
 import java.time.Clock
 import java.time.Duration
@@ -119,11 +121,11 @@ internal fun beans(clock: Clock) = beans {
     }
 
     bean { GenerateResponseCode.Random }
-    bean { PostWalletResponseLive(ref(), ref(), ref(), clock, ref(), ref(), ref()) }
+    bean { PostWalletResponseLive(ref(), ref(), ref(), clock, ref(), ref(), ref(), ref()) }
     bean { GenerateEphemeralEncryptionKeyPairNimbus }
     bean { GetWalletResponseLive(ref()) }
     bean { GetJarmJwksLive(ref()) }
-    bean { PostZkpJwkRequestLive(ref(), ref()) }
+    bean { PostZkpJwkRequestLive(ref(), ref(), ref()) }
 
     //
     // Scheduled
@@ -134,6 +136,12 @@ internal fun beans(clock: Clock) = beans {
     // Config
     //
     bean { verifierConfig(env, clock) }
+
+    //
+    // Issuer Public Key
+    //
+
+    bean {getIssuerEcKey(env)}
 
     //
     // End points
@@ -273,6 +281,19 @@ private fun jarSigningConfig(environment: Environment, clock: Clock): SigningCon
     val algorithm = environment.getProperty("verifier.jar.signing.algorithm", "RS256").let(JWSAlgorithm::parse)
 
     return SigningConfig(key, algorithm)
+}
+
+fun getIssuerEcKey(environment: Environment): ECKey {
+    val issuerCert = environment.getRequiredProperty("verifier.issuerCert")
+    val pemKey = "-----BEGIN CERTIFICATE-----\n" +
+            "${issuerCert}\n" +
+            "-----END CERTIFICATE-----"
+    val certificateFactory: CertificateFactory =
+        CertificateFactory.getInstance("X.509")
+    val certificate =
+        certificateFactory.generateCertificate(ByteArrayInputStream(pemKey.toByteArray())) as X509Certificate
+    val ecKey = ECKey.parse(certificate)
+    return ecKey
 }
 
 private fun verifierConfig(environment: Environment, clock: Clock): VerifierConfig {

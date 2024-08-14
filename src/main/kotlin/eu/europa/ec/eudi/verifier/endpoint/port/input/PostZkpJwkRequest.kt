@@ -16,6 +16,7 @@
 package eu.europa.ec.eudi.verifier.endpoint.port.input
 
 import arrow.core.raise.Raise
+import com.nimbusds.jose.jwk.ECKey
 import eu.europa.ec.eudi.verifier.endpoint.domain.Presentation
 import eu.europa.ec.eudi.verifier.endpoint.domain.RequestId
 import eu.europa.ec.eudi.verifier.endpoint.port.out.persistence.LoadPresentationByRequestId
@@ -24,10 +25,6 @@ import org.springframework.web.reactive.function.server.ServerRequest
 import org.springframework.web.reactive.function.server.awaitBody
 import software.tice.ChallengeRequestData
 import software.tice.ZKPVerifier
-import java.security.KeyFactory
-import java.security.interfaces.ECPublicKey
-import java.security.spec.X509EncodedKeySpec
-import java.util.*
 
 sealed interface ZkpJwkError {
     data class ProcessingError(val message: String, val error: Throwable) : ZkpJwkError
@@ -49,12 +46,6 @@ data class EphemeralKeyResponse(
     val y: String,
 )
 
-private const val issuerPublicKeyPEM = """
------BEGIN PUBLIC KEY-----
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEsFu+Nl1NXvC8RM/IXiXLu8MVA7X7
-mXT3Jnvb5uHxK/5JZxi0wqzGQ11KjZvUF8Ftc/oGAzWdPmTwGEg5ZD293g==
------END PUBLIC KEY-----
-"""
 
 /**
  * Given a [RequestId] and [ServerRequest] returns a list of ephemeral public keys derived from the input data (digest and r) for the ZKP.
@@ -68,17 +59,12 @@ fun interface PostZkpJwkRequest {
 class PostZkpJwkRequestLive(
     private val loadPresentationByRequestId: LoadPresentationByRequestId,
     private val storePresentation: StorePresentation,
+    private val getIssuerEcKey: ECKey
 ) : PostZkpJwkRequest {
 
     context(Raise<ZkpJwkError>)
     override suspend operator fun invoke(request: ServerRequest, requestId: RequestId): List<EphemeralKeyResponse> {
-        val pem = issuerPublicKeyPEM.replace("-----BEGIN PUBLIC KEY-----", "").replace("-----END PUBLIC KEY-----", "")
-        val keyBytes = Base64.getDecoder().decode(pem)
-        val keySpec = X509EncodedKeySpec(keyBytes)
-        val keyFactory = KeyFactory.getInstance("EC")
-        val publicKey = keyFactory.generatePublic(keySpec) as ECPublicKey
-
-        val verifier = ZKPVerifier(publicKey)
+        val verifier = ZKPVerifier(getIssuerEcKey.toECPublicKey())
         val presentation = loadPresentationByRequestId(requestId)
 
         val challengeRequests = request.awaitBody<Array<ChallengeRequest>>()
