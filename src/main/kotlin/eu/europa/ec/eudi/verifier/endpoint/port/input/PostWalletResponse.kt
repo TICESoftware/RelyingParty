@@ -35,10 +35,11 @@ import eu.europa.ec.eudi.verifier.endpoint.port.out.persistence.LoadPresentation
 import eu.europa.ec.eudi.verifier.endpoint.port.out.persistence.StorePresentation
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import java.time.Clock
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-
+import software.tice.VpTokenFormat
+import software.tice.ZKPVerifier
+import java.time.Clock
 
 /**
  * Represent the Authorisation Response placed by wallet
@@ -51,7 +52,6 @@ data class AuthorisationResponseTO(
     val vpToken: String? = null,
     val presentationSubmission: PresentationSubmission? = null,
 )
-
 
 sealed interface AuthorisationResponse {
 
@@ -139,7 +139,7 @@ class PostWalletResponseLive(
     private val verifierConfig: VerifierConfig,
     private val generateResponseCode: GenerateResponseCode,
     private val createQueryWalletResponseRedirectUri: CreateQueryWalletResponseRedirectUri,
-    private val getIssuerEcKey: ECKey
+    private val getIssuerEcKey: ECKey,
 ) : PostWalletResponse {
 
     private val logger: Logger = LoggerFactory.getLogger(PostWalletResponseLive::class.java)
@@ -170,25 +170,43 @@ class PostWalletResponseLive(
 
         // map through the response and call the proper verification methods for every descriptor
         responseObject.presentationSubmission!!.descriptorMaps.map { descriptor ->
+            val verifier = ZKPVerifier(getIssuerEcKey.toECPublicKey())
+
+            val path = descriptor.path.value
+            val token = responseObject.vpToken?.let { extractPresentation(it, path) }
+            ensureNotNull(token) {
+                logger.error("Missing VPToken")
+                WalletResponseValidationError.MissingVpTokenOrPresentationSubmission
+            }
+
             when (descriptor.format) {
                 "vc+sd-jwt" -> {
-                    val path = descriptor.path.value
-                    val sdJwt = responseObject.vpToken?.let { extractPresentation(it, path) }
-                    if (sdJwt != null) {
-                        // Perform SD-JWT verification here
-                        checkSdJwtSignature(sdJwt)
-                        logger.info("Successfully verified the sdjwt")
-
-                    } else {
-                        // Handle error: SD-JWT not found
-                        logger.info("SD-JWT not found at path: $path")
-                        raise(WalletResponseValidationError.InvalidVPToken)
-                    }
+                    checkSdJwtSignature(token)
+                    logger.info("Successfully verified the sdjwt")
                 }
 
-                "mso_mdoc" -> print("mso_mdoc+zkp")
-                "vc+sd-jwt+zkp", "mso_mdoc+zkp" -> print("vc+sd-jwt+zkp")
+                "mso_mdoc" -> print("mso_mdoc")
+                "vc+sd-jwt+zkp" -> {
+                    logger.info("Starting zkp verification for SDJWT")
+                    val descriptorId: String = descriptor.id.toString()
+                    val key = presentation.keyMap?.get(descriptorId)
+                    ensureNotNull(key) { raise(WalletResponseValidationError.InvalidVPToken) }
+
+                    val proofed = token.let {
+                        verifier.verifyChallenge(VpTokenFormat.SDJWT, it, key)
+                    }
+                    ensure(proofed) {
+                        raise(WalletResponseValidationError.InvalidVPToken)
+                    }
+                    logger.info("Proofed SD-JWT with ZK")
+                }
+
+                "mso_mdoc+zkp" -> {
+                    logger.info("Starting zkp verification for mDoc")
+                }
+
                 else -> {
+                    logger.error("Unknown format in descriptor path: ${descriptor.path}")
                     raise(WalletResponseValidationError.InvalidFormat)
                 }
             }
@@ -198,7 +216,9 @@ class PostWalletResponseLive(
         // Put wallet response into presentation object and store into db
         val submitted = submit(presentation, responseObject).also { storePresentation(it) }
 
-        return when (val getWalletResponseMethod = presentation.getWalletResponseMethod) {
+        return when (
+            val getWalletResponseMethod = presentation.getWalletResponseMethod
+        ) {
             is GetWalletResponseMethod.Redirect -> with(createQueryWalletResponseRedirectUri) {
                 requireNotNull(submitted.responseCode) { "ResponseCode expected in Submitted state but not found" }
                 val redirectUri = getWalletResponseMethod.redirectUri(submitted.responseCode)
@@ -234,9 +254,10 @@ class PostWalletResponseLive(
         try {
             val jwtSignatureVerifier = ECDSAVerifier(getIssuerEcKey).asJwtVerifier()
 
+            // TODO: Replace with SdJwtVcVerifier to verify the KeyBinding
             return SdJwtVerifier.verifyPresentation(
                 jwtSignatureVerifier = jwtSignatureVerifier,
-                keyBindingVerifier = KeyBindingVerifier.mustBePresentAndValid(),
+                keyBindingVerifier = KeyBindingVerifier.MustBePresent,
                 unverifiedSdJwt = sdJwt,
             ).getOrThrow()
         } catch (e: SdJwtVerificationException) {

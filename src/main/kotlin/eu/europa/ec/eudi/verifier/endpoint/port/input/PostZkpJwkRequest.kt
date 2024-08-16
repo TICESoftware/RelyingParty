@@ -18,19 +18,18 @@ package eu.europa.ec.eudi.verifier.endpoint.port.input
 import arrow.core.raise.Raise
 import arrow.core.raise.ensure
 import com.nimbusds.jose.jwk.ECKey
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 import eu.europa.ec.eudi.verifier.endpoint.domain.Presentation.RequestObjectRetrieved
 import eu.europa.ec.eudi.verifier.endpoint.domain.RequestId
 import eu.europa.ec.eudi.verifier.endpoint.port.out.persistence.LoadPresentationByRequestId
 import eu.europa.ec.eudi.verifier.endpoint.port.out.persistence.StorePresentation
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import org.springframework.web.reactive.function.server.ServerRequest
 import org.springframework.web.reactive.function.server.awaitBody
 import software.tice.ChallengeRequestData
 import software.tice.ZKPVerifier
 import java.security.interfaces.ECPrivateKey
 import java.util.concurrent.ConcurrentHashMap
-
 
 sealed interface ZkpJwkError {
     data object ProcessingError : ZkpJwkError
@@ -52,7 +51,6 @@ data class EphemeralKeyResponse(
     val y: String,
 )
 
-
 /**
  * Given a [RequestId] and [ServerRequest] returns a list of ephemeral public keys derived from the input data (digest and r) for the ZKP.
  */
@@ -66,13 +64,12 @@ class PostZkpJwkRequestLive(
     private val loadPresentationByRequestId: LoadPresentationByRequestId,
     private val storePresentation: StorePresentation,
     private val getIssuerEcKey: ECKey,
-    private val keyMap: ConcurrentHashMap<String, ECPrivateKey> = ConcurrentHashMap()
+    private val keyMap: ConcurrentHashMap<String, ECPrivateKey> = ConcurrentHashMap(),
 ) : PostZkpJwkRequest {
     val logger: Logger = LoggerFactory.getLogger(PostWalletResponseLive::class.java)
 
     context(Raise<ZkpJwkError>)
     override suspend operator fun invoke(request: ServerRequest, requestId: RequestId): List<EphemeralKeyResponse> {
-
         val verifier = ZKPVerifier(getIssuerEcKey.toECPublicKey())
         val presentation = loadPresentationByRequestId(requestId)
         val challengeRequests = request.awaitBody<Array<ChallengeRequest>>()
@@ -84,7 +81,6 @@ class PostZkpJwkRequestLive(
 
             val x = challenge.w.affineX.toString()
             val y = challenge.w.affineY.toString()
-
 
             EphemeralKeyResponse(
                 id = challengeRequest.id,
