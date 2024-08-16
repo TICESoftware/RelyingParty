@@ -141,7 +141,7 @@ internal fun beans(clock: Clock) = beans {
     // Issuer Public Key
     //
 
-    bean {getIssuerEcKey(env)}
+    bean { getIssuerEcKey(env) }
 
     //
     // End points
@@ -285,11 +285,11 @@ private fun jarSigningConfig(environment: Environment, clock: Clock): SigningCon
 
 fun getIssuerEcKey(environment: Environment): ECKey {
     val issuerCert = environment.getRequiredProperty("verifier.issuer.cert")
-     val logger: Logger = LoggerFactory.getLogger(PostWalletResponseLive::class.java)
+    val logger: Logger = LoggerFactory.getLogger(PostWalletResponseLive::class.java)
     logger.info("ISSUERCERT: $issuerCert")
     val pemKey = "-----BEGIN CERTIFICATE-----\n" +
-            "${issuerCert}\n" +
-            "-----END CERTIFICATE-----"
+        "${issuerCert}\n" +
+        "-----END CERTIFICATE-----"
     val certificateFactory: CertificateFactory =
         CertificateFactory.getInstance("X.509")
     val certificate =

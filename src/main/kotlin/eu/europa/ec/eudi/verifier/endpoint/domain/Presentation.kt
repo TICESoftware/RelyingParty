@@ -158,7 +158,7 @@ sealed interface Presentation {
      * as part of the initialization of the process (when using request JAR parameter)
      * or later on (when using request_uri JAR parameter)
      */
-   data class RequestObjectRetrieved  constructor(
+    data class RequestObjectRetrieved constructor(
         override val id: TransactionId,
         override val initiatedAt: Instant,
         override val type: PresentationType,
@@ -236,8 +236,6 @@ sealed interface Presentation {
             }
         }
     }
-
-
 
     class TimedOut private constructor(
         override val id: TransactionId,
