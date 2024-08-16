@@ -168,7 +168,7 @@ sealed interface Presentation {
         val ephemeralEcPrivateKey: EphemeralEncryptionKeyPairJWK?,
         val responseMode: ResponseModeOption,
         val getWalletResponseMethod: GetWalletResponseMethod,
-        val keyMap: ConcurrentHashMap<String, ECPrivateKey>?,
+        val zkpKeys: ConcurrentHashMap<String, ECPrivateKey>?,
 
     ) : Presentation {
         init {
