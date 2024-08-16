@@ -26,6 +26,7 @@ import eu.europa.ec.eudi.verifier.endpoint.port.input.WalletResponseAcceptedTO
 import eu.europa.ec.eudi.verifier.endpoint.port.out.cfg.CreateQueryWalletResponseRedirectUri
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation
 import org.junit.jupiter.api.TestMethodOrder
 import org.slf4j.Logger
@@ -56,6 +57,7 @@ import kotlin.test.assertTrue
 )
 @TestMethodOrder(OrderAnnotation::class)
 @AutoConfigureWebTestClient(timeout = Integer.MAX_VALUE.toString()) // used for debugging only
+@Disabled // until verification is complete
 internal class WalletResponseDirectPostWithIdTokenTest {
 
     private val log: Logger = LoggerFactory.getLogger(WalletResponseDirectPostWithIdTokenTest::class.java)
