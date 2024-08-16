@@ -23,6 +23,10 @@ import org.slf4j.LoggerFactory
 fun extractPresentation(vpToken: String, path: String): String? {
     val logger: Logger = LoggerFactory.getLogger(PostWalletResponseLive::class.java)
 
+    if (path == "$") {
+        return vpToken
+    }
+
     val jsonElement = Json.parseToJsonElement(vpToken)
     if (jsonElement is JsonArray) {
         val index = path.trim('$', '[', ']').toIntOrNull()
