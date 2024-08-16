@@ -64,7 +64,7 @@ class PostZkpJwkRequestLive(
     private val loadPresentationByRequestId: LoadPresentationByRequestId,
     private val storePresentation: StorePresentation,
     private val getIssuerEcKey: ECKey,
-    private val keyMap: ConcurrentHashMap<String, ECPrivateKey> = ConcurrentHashMap(),
+    private val zkpKeys: ConcurrentHashMap<String, ECPrivateKey> = ConcurrentHashMap(),
 ) : PostZkpJwkRequest {
     val logger: Logger = LoggerFactory.getLogger(PostWalletResponseLive::class.java)
 
@@ -77,7 +77,7 @@ class PostZkpJwkRequestLive(
         val ephemeralKeyResponses = challengeRequests.map { challengeRequest ->
             val challengeRequestData = ChallengeRequestData(digest = challengeRequest.digest, r = challengeRequest.r)
             val (challenge, key) = verifier.createChallenge(challengeRequestData)
-            keyMap[challengeRequest.id] = key
+            zkpKeys[challengeRequest.id] = key
 
             val x = challenge.w.affineX.toString()
             val y = challenge.w.affineY.toString()
@@ -94,11 +94,11 @@ class PostZkpJwkRequestLive(
 
         if (presentation != null) {
             ensure(presentation is RequestObjectRetrieved) { raise(ZkpJwkError.ProcessingError) }
-            val updatedPresentation = presentation.copy(keyMap = keyMap)
+            val updatedPresentation = presentation.copy(zkpKeys = zkpKeys)
             storePresentation(updatedPresentation)
             logger.info("updatedPresentation $updatedPresentation")
         }
-        // TODO: check if keyMap is saved properly
+        // TODO: check if zkpKeys is saved properly
         return ephemeralKeyResponses
     }
 }
