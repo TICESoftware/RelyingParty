@@ -122,7 +122,16 @@ object TestContext {
 @SpringBootTest(
     classes = [VerifierApplication::class],
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-    properties = ["ISSUER_CERT=MIIBHjCBxaADAgECAgEBMAoGCCqGSM49BAMCMBcxFTATBgNVBAoTDERvY2tlciwgSW5jLjAeFw0xMzA3MjUwMTEwMjRaFw0xNTA3MjUwMTEwMjRaMBcxFTATBgNVBAoTDERvY2tlciwgSW5jLjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABMolCWAO0iP7tkX/KLjQ9CKeOoHYynBgfFcd1ZGoxcefmIbWjHx29eWI3xlhbjS6ssSxhrw1Kuh5RrASfUCHD7SjAjAAMAoGCCqGSM49BAMCA0gAMEUCIQDRLQTSSeqjsxsb+q4exLStEM7f7/ymBzoUzbXU7wI9AgIgXCWaI++GkopGT8T2qV/3+NL0U+fYM0ZjSNSiwaK3+kA="]
+    properties = [
+        "ISSUER_CERT=MIIBHjCBxaADAgECAgEBMAoGCCqGSM49B" +
+            "AMCMBcxFTATBgNVBAoTDERvY2tlciwgSW5jLjAeFw0xMzA3MjUw" +
+            "MTEwMjRaFw0xNTA3MjUwMTEwMjRaMBcxFTATBgNVBAoTDERvY2t" +
+            "lciwgSW5jLjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABMolCW" +
+            "AO0iP7tkX/KLjQ9CKeOoHYynBgfFcd1ZGoxcefmIbWjHx29eWI3" +
+            "xlhbjS6ssSxhrw1Kuh5RrASfUCHD7SjAjAAMAoGCCqGSM49BAMC" +
+            "A0gAMEUCIQDRLQTSSeqjsxsb+q4exLStEM7f7/ymBzoUzbXU7wI" +
+            "9AgIgXCWaI++GkopGT8T2qV/3+NL0U+fYM0ZjSNSiwaK3+kA=",
+    ],
 )
 @ContextConfiguration(initializers = [BeansDslApplicationContextInitializer::class])
 internal annotation class VerifierApplicationTest(
