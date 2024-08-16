@@ -40,4 +40,14 @@ class VerificationUtilsTest {
 
         assertNull(result)
     }
+
+    @Test
+    fun `extractPresentation should return vpToken for single document`() {
+        val sdJwt = "eyJhbGciOiAiRVMyNTYiLCAidHlwIjogInZjK3NkLWp3dCIsICJraWQiOiAiZG9jLXNpZ25lci0wNS0yNS0yMDIyIn0"
+        val path = "$"
+
+        val result = extractPresentation(sdJwt, path)
+
+        assertEquals(sdJwt, result)
+    }
 }
