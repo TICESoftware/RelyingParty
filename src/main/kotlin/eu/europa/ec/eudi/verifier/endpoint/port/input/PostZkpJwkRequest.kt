@@ -16,8 +16,11 @@
 package eu.europa.ec.eudi.verifier.endpoint.port.input
 
 import arrow.core.raise.Raise
+import arrow.core.raise.ensure
 import com.nimbusds.jose.jwk.ECKey
-import eu.europa.ec.eudi.verifier.endpoint.domain.Presentation
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
+import eu.europa.ec.eudi.verifier.endpoint.domain.Presentation.RequestObjectRetrieved
 import eu.europa.ec.eudi.verifier.endpoint.domain.RequestId
 import eu.europa.ec.eudi.verifier.endpoint.port.out.persistence.LoadPresentationByRequestId
 import eu.europa.ec.eudi.verifier.endpoint.port.out.persistence.StorePresentation
@@ -25,9 +28,12 @@ import org.springframework.web.reactive.function.server.ServerRequest
 import org.springframework.web.reactive.function.server.awaitBody
 import software.tice.ChallengeRequestData
 import software.tice.ZKPVerifier
+import java.security.interfaces.ECPrivateKey
+import java.util.concurrent.ConcurrentHashMap
+
 
 sealed interface ZkpJwkError {
-    data class ProcessingError(val message: String, val error: Throwable) : ZkpJwkError
+    data object ProcessingError : ZkpJwkError
 }
 
 data class ChallengeRequest(
@@ -59,31 +65,26 @@ fun interface PostZkpJwkRequest {
 class PostZkpJwkRequestLive(
     private val loadPresentationByRequestId: LoadPresentationByRequestId,
     private val storePresentation: StorePresentation,
-    private val getIssuerEcKey: ECKey
+    private val getIssuerEcKey: ECKey,
+    private val keyMap: ConcurrentHashMap<String, ECPrivateKey> = ConcurrentHashMap()
 ) : PostZkpJwkRequest {
+    val logger: Logger = LoggerFactory.getLogger(PostWalletResponseLive::class.java)
 
     context(Raise<ZkpJwkError>)
     override suspend operator fun invoke(request: ServerRequest, requestId: RequestId): List<EphemeralKeyResponse> {
+
         val verifier = ZKPVerifier(getIssuerEcKey.toECPublicKey())
         val presentation = loadPresentationByRequestId(requestId)
-
         val challengeRequests = request.awaitBody<Array<ChallengeRequest>>()
 
-        return challengeRequests.map { challengeRequest ->
+        val ephemeralKeyResponses = challengeRequests.map { challengeRequest ->
             val challengeRequestData = ChallengeRequestData(digest = challengeRequest.digest, r = challengeRequest.r)
             val (challenge, key) = verifier.createChallenge(challengeRequestData)
+            keyMap[challengeRequest.id] = key
 
             val x = challenge.w.affineX.toString()
             val y = challenge.w.affineY.toString()
 
-            if (presentation is Presentation.Submitted) {
-                val zkpStateResult = Presentation.ZkpState.zkpReady(presentation, key)
-                zkpStateResult.onSuccess { zkpState ->
-                    storePresentation(zkpState)
-                }.onFailure { error ->
-                    raise(ZkpJwkError.ProcessingError("Failed to create ZkpState", error))
-                }
-            }
 
             EphemeralKeyResponse(
                 id = challengeRequest.id,
@@ -94,5 +95,14 @@ class PostZkpJwkRequestLive(
                 y = y,
             )
         }
+
+        if (presentation != null) {
+            ensure(presentation is RequestObjectRetrieved) { raise(ZkpJwkError.ProcessingError) }
+            val updatedPresentation = presentation.copy(keyMap = keyMap)
+            storePresentation(updatedPresentation)
+            logger.info("updatedPresentation $updatedPresentation")
+        }
+        // TODO: check if keyMap is saved properly
+        return ephemeralKeyResponses
     }
 }

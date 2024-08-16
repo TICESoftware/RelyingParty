@@ -20,6 +20,7 @@ import eu.europa.ec.eudi.prex.PresentationSubmission
 import java.security.interfaces.ECPrivateKey
 import java.time.Clock
 import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
 
 @JvmInline
 value class TransactionId(val value: String) {
@@ -157,7 +158,7 @@ sealed interface Presentation {
      * as part of the initialization of the process (when using request JAR parameter)
      * or later on (when using request_uri JAR parameter)
      */
-    class RequestObjectRetrieved private constructor(
+   data class RequestObjectRetrieved  constructor(
         override val id: TransactionId,
         override val initiatedAt: Instant,
         override val type: PresentationType,
@@ -167,6 +168,8 @@ sealed interface Presentation {
         val ephemeralEcPrivateKey: EphemeralEncryptionKeyPairJWK?,
         val responseMode: ResponseModeOption,
         val getWalletResponseMethod: GetWalletResponseMethod,
+        val keyMap: ConcurrentHashMap<String, ECPrivateKey>?,
+
     ) : Presentation {
         init {
             require(initiatedAt.isBefore(requestObjectRetrievedAt) || initiatedAt == requestObjectRetrievedAt)
@@ -185,6 +188,7 @@ sealed interface Presentation {
                         requested.ephemeralEcPrivateKey,
                         requested.responseMode,
                         requested.getWalletResponseMethod,
+                        null,
                     )
                 }
         }
@@ -233,41 +237,7 @@ sealed interface Presentation {
         }
     }
 
-    class ZkpState private constructor(
-        override val id: TransactionId,
-        override val initiatedAt: Instant,
-        override val type: PresentationType,
-        val requestId: RequestId,
-        val requestObjectRetrievedAt: Instant,
-        val submittedAt: Instant,
-        val walletResponse: WalletResponse,
-        val nonce: Nonce,
-        val responseCode: ResponseCode?,
-        val privateKey: ECPrivateKey,
-    ) : Presentation {
 
-        companion object {
-            fun zkpReady(
-                submitted: Submitted,
-                privateKey: ECPrivateKey,
-            ): Result<ZkpState> = runCatching {
-                with(submitted) {
-                    ZkpState(
-                        id,
-                        initiatedAt,
-                        type,
-                        requestId,
-                        requestObjectRetrievedAt,
-                        submittedAt,
-                        walletResponse,
-                        nonce,
-                        responseCode,
-                        privateKey,
-                    )
-                }
-            }
-        }
-    }
 
     class TimedOut private constructor(
         override val id: TransactionId,
@@ -306,18 +276,6 @@ sealed interface Presentation {
                     at,
                 )
             }
-
-            fun timeOut(presentation: ZkpState, at: Instant): Result<TimedOut> = runCatching {
-                require(presentation.initiatedAt.isBefore(at))
-                TimedOut(
-                    presentation.id,
-                    presentation.initiatedAt,
-                    presentation.type,
-                    presentation.requestObjectRetrievedAt,
-                    presentation.submittedAt,
-                    at,
-                )
-            }
         }
     }
 }
@@ -329,7 +287,6 @@ fun Presentation.isExpired(at: Instant): Boolean {
         is Presentation.RequestObjectRetrieved -> requestObjectRetrievedAt.isBeforeOrEqual(at)
         is Presentation.TimedOut -> false
         is Presentation.Submitted -> initiatedAt.isBeforeOrEqual(at)
-        is Presentation.ZkpState -> initiatedAt.isBeforeOrEqual(at)
     }
 }
 
@@ -350,7 +307,4 @@ fun Presentation.RequestObjectRetrieved.submit(
     Presentation.Submitted.submitted(this, clock.instant(), walletResponse, responseCode)
 
 fun Presentation.Submitted.timedOut(clock: Clock): Result<Presentation.TimedOut> =
-    Presentation.TimedOut.timeOut(this, clock.instant())
-
-fun Presentation.ZkpState.timedOut(clock: Clock): Result<Presentation.TimedOut> =
     Presentation.TimedOut.timeOut(this, clock.instant())
