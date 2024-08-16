@@ -75,8 +75,7 @@ class WalletApi(
      */
     private suspend fun handleGetRequestObject(req: ServerRequest): ServerResponse {
         suspend fun requestObjectFound(jwt: String) =
-            ok().contentType(MediaType.parseMediaType("application/oauth-authz-req+jwt"))
-                .bodyValueAndAwait(jwt)
+            ok().contentType(MediaType.parseMediaType("application/oauth-authz-req+jwt")).bodyValueAndAwait(jwt)
 
         val requestId = req.requestId()
         logger.info("Handling GetRequestObject for $requestId ...")
@@ -137,9 +136,7 @@ class WalletApi(
     private suspend fun handleGetPublicJwkSet(): ServerResponse {
         logger.info("Handling GetPublicJwkSet ...")
         val publicJwkSet = JWKSet(signingKey).toJSONObject(true)
-        return ok()
-            .contentType(MediaType.parseMediaType(JWKSet.MIME_TYPE))
-            .bodyValueAndAwait(publicJwkSet)
+        return ok().contentType(MediaType.parseMediaType(JWKSet.MIME_TYPE)).bodyValueAndAwait(publicJwkSet)
     }
 
     /**
@@ -150,8 +147,7 @@ class WalletApi(
         return when (val queryResponse = getJarmJwks(requestId)) {
             is NotFound -> notFound().buildAndAwait()
             is InvalidState -> badRequest().buildAndAwait()
-            is Found -> ok()
-                .contentType(MediaType.parseMediaType(JWKSet.MIME_TYPE))
+            is Found -> ok().contentType(MediaType.parseMediaType(JWKSet.MIME_TYPE))
                 .bodyValueAndAwait(queryResponse.value.toJSONObject(true))
         }
     }
@@ -163,6 +159,7 @@ class WalletApi(
     private suspend fun handlePostZkpJwk(request: ServerRequest): ServerResponse = try {
         logger.info("Handling PostZkpJwk ...")
         val requestId = request.requestId()
+        logger.info("RequestID PostZkpJwk for $requestId ")
         val outcome = either { postZkpJwkRequest(request, requestId) }
         outcome.fold(
             ifRight = { jwkSet: List<EphemeralKeyResponse> ->
@@ -246,29 +243,20 @@ class WalletApi(
             urlBuilder(baseUrl = baseUrl, pathTemplate = PRESENTATION_DEFINITION_PATH)
 
         fun publicJwkSet(baseUrl: String): EmbedOption.ByReference<Any> = EmbedOption.ByReference { _ ->
-            DefaultUriBuilderFactory(baseUrl)
-                .uriString(GET_PUBLIC_JWK_SET_PATH)
-                .build()
-                .toURL()
+            DefaultUriBuilderFactory(baseUrl).uriString(GET_PUBLIC_JWK_SET_PATH).build().toURL()
         }
 
         fun jarmJwksByReference(baseUrl: String): EmbedOption.ByReference<RequestId> =
             urlBuilder(baseUrl, JARM_JWK_SET_PATH)
 
         fun directPost(baseUrl: String): URL =
-            DefaultUriBuilderFactory(baseUrl)
-                .uriString(WALLET_RESPONSE_PATH)
-                .build()
-                .toURL()
+            DefaultUriBuilderFactory(baseUrl).uriString(WALLET_RESPONSE_PATH).build().toURL()
 
         private fun urlBuilder(
             baseUrl: String,
             pathTemplate: String,
         ) = EmbedOption.byReference<RequestId> { requestId ->
-            DefaultUriBuilderFactory(baseUrl)
-                .uriString(pathTemplate)
-                .build(requestId.value)
-                .toURL()
+            DefaultUriBuilderFactory(baseUrl).uriString(pathTemplate).build(requestId.value).toURL()
         }
     }
 }

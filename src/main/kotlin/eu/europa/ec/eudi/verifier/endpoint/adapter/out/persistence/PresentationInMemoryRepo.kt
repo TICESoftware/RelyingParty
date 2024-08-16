@@ -40,7 +40,6 @@ class PresentationInMemoryRepo(
             is Presentation.Requested -> p.requestId
             is Presentation.RequestObjectRetrieved -> p.requestId
             is Presentation.Submitted -> p.requestId
-            is Presentation.ZkpState -> p.requestId
             is Presentation.TimedOut -> null
         }
         LoadPresentationByRequestId { requestId ->
