@@ -17,6 +17,7 @@ plugins {
 }
 
 dependencies {
+    implementation("id.walt:waltid-mdoc-jvm:1.2312081100.0")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")

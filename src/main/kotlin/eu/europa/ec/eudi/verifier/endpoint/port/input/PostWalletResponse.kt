@@ -33,6 +33,7 @@ import eu.europa.ec.eudi.verifier.endpoint.port.out.cfg.GenerateResponseCode
 import eu.europa.ec.eudi.verifier.endpoint.port.out.jose.VerifyJarmJwtSignature
 import eu.europa.ec.eudi.verifier.endpoint.port.out.persistence.LoadPresentationByRequestId
 import eu.europa.ec.eudi.verifier.endpoint.port.out.persistence.StorePresentation
+import id.walt.mdoc.doc.MDoc
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import org.slf4j.Logger
@@ -185,7 +186,29 @@ class PostWalletResponseLive(
                     logger.info("Successfully verified the sdjwt")
                 }
 
-                "mso_mdoc" -> print("mso_mdoc")
+                "mso_mdoc" -> {
+                    val presentedMdoc = MDoc.fromCBORHex(token)
+
+//                    val cryptoProvider = SimpleCOSECryptoProvider(listOf(
+//                        COSECryptoProviderKeyInfo(ISSUER_KEY_ID, AlgorithmID.ECDSA_256, getIssuerEcKey, null)
+//                    ))
+//
+//                    presentedMdoc.verify(
+//                        MDocVerificationParams(
+//                            VerificationType.ISSUER_SIGNATURE and VerificationType.VALIDITY,
+//                        ),
+//                        cryptoProvider
+//                    )
+
+                    // DEBUG OUTPUT, PRINT ALL ITEMS IN MDOC
+                    presentedMdoc.nameSpaces.forEach { ns ->
+                        println("Namespace: $ns")
+                        presentedMdoc.getIssuerSignedItems(ns).forEach { issuerSignedItem ->
+                            println("- ${issuerSignedItem.elementIdentifier.value}: ${issuerSignedItem.elementValue.value}")
+                        }
+                    }
+                }
+
                 "vc+sd-jwt+zkp" -> {
                     logger.info("Starting zkp verification for SDJWT")
                     val descriptorId: String = descriptor.id.value

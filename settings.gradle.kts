@@ -10,6 +10,7 @@ dependencyResolutionManagement {
         maven {
             url = uri("https://jitpack.io")
         }
+        maven("https://maven.walt.id/repository/waltid/")
     }
 }
 
