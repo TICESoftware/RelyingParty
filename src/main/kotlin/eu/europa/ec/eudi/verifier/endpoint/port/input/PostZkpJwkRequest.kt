@@ -29,6 +29,7 @@ import org.springframework.web.reactive.function.server.awaitBody
 import software.tice.ChallengeRequestData
 import software.tice.ZKPVerifier
 import java.security.interfaces.ECPrivateKey
+import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
 sealed interface ZkpJwkError {
@@ -82,13 +83,16 @@ class PostZkpJwkRequestLive(
             val x = challenge.w.affineX.toString()
             val y = challenge.w.affineY.toString()
 
+            val base64EncodedX = Base64.getUrlEncoder().encodeToString(x.toByteArray())
+            val base64EncodedY = Base64.getUrlEncoder().encodeToString(y.toByteArray())
+
             EphemeralKeyResponse(
                 id = challengeRequest.id,
                 kid = challengeRequest.id,
                 kty = "EC",
                 crv = "P-256",
-                x = x,
-                y = y,
+                x = base64EncodedX,
+                y = base64EncodedY,
             )
         }
 
