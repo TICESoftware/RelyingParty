@@ -80,8 +80,8 @@ class PostZkpJwkRequestLive(
             val (challenge, key) = verifier.createChallenge(challengeRequestData)
             zkpKeys[challengeRequest.id] = key
 
-            val x = challenge.w.affineX.toString()
-            val y = challenge.w.affineY.toString()
+            val x = challenge.w.affineX
+            val y = challenge.w.affineY
 
             val base64EncodedX = Base64.getUrlEncoder().encodeToString(x.toByteArray())
             val base64EncodedY = Base64.getUrlEncoder().encodeToString(y.toByteArray())

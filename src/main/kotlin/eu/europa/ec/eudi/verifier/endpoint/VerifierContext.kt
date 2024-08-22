@@ -43,7 +43,6 @@ import eu.europa.ec.eudi.verifier.endpoint.port.out.cfg.CreateQueryWalletRespons
 import eu.europa.ec.eudi.verifier.endpoint.port.out.cfg.GenerateResponseCode
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
-import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.boot.web.codec.CodecCustomizer
 import org.springframework.context.support.beans
@@ -285,8 +284,6 @@ private fun jarSigningConfig(environment: Environment, clock: Clock): SigningCon
 
 fun getIssuerEcKey(environment: Environment): ECKey {
     val issuerCert = environment.getRequiredProperty("verifier.issuer.cert")
-    val logger: Logger = LoggerFactory.getLogger(PostWalletResponseLive::class.java)
-    logger.info("ISSUERCERT: $issuerCert")
     val pemKey = "-----BEGIN CERTIFICATE-----\n" +
         "${issuerCert}\n" +
         "-----END CERTIFICATE-----"

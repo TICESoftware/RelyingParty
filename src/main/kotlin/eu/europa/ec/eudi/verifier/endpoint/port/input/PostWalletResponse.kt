@@ -179,14 +179,14 @@ class PostWalletResponseLive(
                 WalletResponseValidationError.MissingVpTokenOrPresentationSubmission
             }
 
-            when (descriptor.format) {
-                "vc+sd-jwt" -> {
+            when {
+                descriptor.format.contains("vc+sd-jwt") -> {
                     checkSdJwtSignature(token)
                     logger.info("Successfully verified the sdjwt")
                 }
 
-                "mso_mdoc" -> print("mso_mdoc")
-                "vc+sd-jwt+zkp" -> {
+                descriptor.format.contains("mso_mdoc") -> print("mso_mdoc")
+                descriptor.format.contains("vc+sd-jwt+zkp") -> {
                     logger.info("Starting zkp verification for SDJWT")
                     val descriptorId: String = descriptor.id.toString()
                     val key = presentation.zkpKeys?.get(descriptorId)
@@ -201,7 +201,7 @@ class PostWalletResponseLive(
                     logger.info("Proofed SD-JWT with ZK")
                 }
 
-                "mso_mdoc+zkp" -> {
+                descriptor.format.contains("mso_mdoc+zkp") -> {
                     logger.info("Starting zkp verification for mDoc")
                 }
 
@@ -216,9 +216,7 @@ class PostWalletResponseLive(
         // Put wallet response into presentation object and store into db
         val submitted = submit(presentation, responseObject).also { storePresentation(it) }
 
-        return when (
-            val getWalletResponseMethod = presentation.getWalletResponseMethod
-        ) {
+        return when (val getWalletResponseMethod = presentation.getWalletResponseMethod) {
             is GetWalletResponseMethod.Redirect -> with(createQueryWalletResponseRedirectUri) {
                 requireNotNull(submitted.responseCode) { "ResponseCode expected in Submitted state but not found" }
                 val redirectUri = getWalletResponseMethod.redirectUri(submitted.responseCode)
