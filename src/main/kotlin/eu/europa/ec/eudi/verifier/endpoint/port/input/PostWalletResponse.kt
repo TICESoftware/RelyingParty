@@ -179,17 +179,19 @@ class PostWalletResponseLive(
                 WalletResponseValidationError.MissingVpTokenOrPresentationSubmission
             }
 
-            when {
-                descriptor.format.contains("vc+sd-jwt") -> {
+            when (descriptor.format) {
+                "vc+sd-jwt" -> {
                     checkSdJwtSignature(token)
                     logger.info("Successfully verified the sdjwt")
                 }
 
-                descriptor.format.contains("mso_mdoc") -> print("mso_mdoc")
-                descriptor.format.contains("vc+sd-jwt+zkp") -> {
+                "mso_mdoc" -> print("mso_mdoc")
+                "vc+sd-jwt+zkp" -> {
                     logger.info("Starting zkp verification for SDJWT")
                     val descriptorId: String = descriptor.id.toString()
+                    logger.info("ZKP-SDJWT: descriptorId=$descriptorId")
                     val key = presentation.zkpKeys?.get(descriptorId)
+                    logger.info("ZKP-SDJWT: key=$key")
                     ensureNotNull(key) { raise(WalletResponseValidationError.InvalidVPToken) }
 
                     val proofed = token.let {
@@ -201,7 +203,7 @@ class PostWalletResponseLive(
                     logger.info("Proofed SD-JWT with ZK")
                 }
 
-                descriptor.format.contains("mso_mdoc+zkp") -> {
+                "mso_mdoc+zkp" -> {
                     logger.info("Starting zkp verification for mDoc")
                 }
 
