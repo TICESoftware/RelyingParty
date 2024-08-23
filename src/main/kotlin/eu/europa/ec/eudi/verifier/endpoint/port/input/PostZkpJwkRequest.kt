@@ -78,6 +78,7 @@ class PostZkpJwkRequestLive(
         val ephemeralKeyResponses = challengeRequests.map { challengeRequest ->
             val challengeRequestData = ChallengeRequestData(digest = challengeRequest.digest, r = challengeRequest.r)
             val (challenge, key) = verifier.createChallenge(challengeRequestData)
+            logger.info("This is the challenge requestID: ${challengeRequest.id}")
             zkpKeys[challengeRequest.id] = key
 
             val x = challenge.w.affineX
@@ -102,7 +103,6 @@ class PostZkpJwkRequestLive(
             storePresentation(updatedPresentation)
             logger.info("updatedPresentation $updatedPresentation")
         }
-        // TODO: check if zkpKeys is saved properly
         return ephemeralKeyResponses
     }
 }
