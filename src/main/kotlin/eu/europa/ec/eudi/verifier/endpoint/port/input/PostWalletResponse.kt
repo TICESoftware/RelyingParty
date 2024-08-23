@@ -189,11 +189,8 @@ class PostWalletResponseLive(
                 "vc+sd-jwt+zkp" -> {
                     logger.info("Starting zkp verification for SDJWT")
                     val descriptorId: String = descriptor.id.value
-                    logger.info("ZKP-SDJWT: descriptorId=$descriptorId")
-                    logger.info("This is the whole presentation: $presentation")
 
                     val key = presentation.zkpKeys?.get(descriptorId)
-                    logger.info("ZKP-SDJWT: key=$key")
                     ensureNotNull(key) { raise(WalletResponseValidationError.InvalidVPToken) }
 
                     val proofed = token.let {
@@ -207,6 +204,18 @@ class PostWalletResponseLive(
 
                 "mso_mdoc+zkp" -> {
                     logger.info("Starting zkp verification for mDoc")
+                    val descriptorId: String = descriptor.id.value
+
+                    val key = presentation.zkpKeys?.get(descriptorId)
+                    ensureNotNull(key) { raise(WalletResponseValidationError.InvalidVPToken) }
+
+                    val proofed = token.let {
+                        verifier.verifyChallenge(VpTokenFormat.MSOMDOC, it, key)
+                    }
+                    ensure(proofed) {
+                        raise(WalletResponseValidationError.InvalidVPToken)
+                    }
+                    logger.info("Proofed MDOC with ZK")
                 }
 
                 else -> {
