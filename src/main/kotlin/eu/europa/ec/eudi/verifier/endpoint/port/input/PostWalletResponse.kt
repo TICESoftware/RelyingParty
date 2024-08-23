@@ -188,11 +188,11 @@ class PostWalletResponseLive(
                 "mso_mdoc" -> print("mso_mdoc")
                 "vc+sd-jwt+zkp" -> {
                     logger.info("Starting zkp verification for SDJWT")
-                    val descriptorId: String = descriptor.id.toString()
+                    val descriptorId: String = descriptor.id.value
                     logger.info("ZKP-SDJWT: descriptorId=$descriptorId")
                     logger.info("This is the whole presentation: $presentation")
 
-                    val key = presentation.zkpKeys?.getValue(descriptorId)
+                    val key = presentation.zkpKeys?.get(descriptorId)
                     logger.info("ZKP-SDJWT: key=$key")
                     ensureNotNull(key) { raise(WalletResponseValidationError.InvalidVPToken) }
 
