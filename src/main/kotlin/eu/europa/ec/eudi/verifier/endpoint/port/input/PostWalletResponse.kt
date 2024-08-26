@@ -206,14 +206,10 @@ class PostWalletResponseLive(
                     logger.info("Starting zkp verification for SDJWT")
                     val descriptorId: String = descriptor.id.value
 
-                    val key = presentation.zkpKeys?.get(descriptorId)
-                    ensureNotNull(key) { raise(WalletResponseValidationError.InvalidVPToken) }
+                    val key = presentation.zkpKeys?.get(descriptorId) ?: raise(WalletResponseValidationError.InvalidVPToken)
 
-                    val sdjwtToken = token.split("~")[0]
-                    val proofed = sdjwtToken.let {
-                        verifier.verifyChallenge(VpTokenFormat.SDJWT, it, key)
-                    }
-                    ensure(proofed) {
+                    val sdjwtToken = token.split("~").first()
+                    ensure(verifier.verifyChallenge(VpTokenFormat.SDJWT, sdjwtToken, key)) {
                         raise(WalletResponseValidationError.InvalidVPToken)
                     }
                     logger.info("Proofed SD-JWT with ZK")
@@ -222,29 +218,20 @@ class PostWalletResponseLive(
                 "mso_mdoc+zkp" -> {
                     logger.info("Starting zkp verification for mDoc")
                     val descriptorId: String = descriptor.id.value
-
-                    val key = presentation.zkpKeys?.get(descriptorId)
-                    ensureNotNull(key) { raise(WalletResponseValidationError.InvalidVPToken) }
-
-                    // ---
+                    val key = presentation.zkpKeys?.get(descriptorId) ?: raise(WalletResponseValidationError.InvalidVPToken)
 
                     val data = DataElement.fromCBOR<MapElement>(Base64.getUrlDecoder().decode(token))
-                    val documents = data.value[MapKey("documents")] as? ListElement
-                    ensureNotNull(documents) {
-                        logger.error("No documents found in MDoc")
-                        WalletResponseValidationError.InvalidMdoc
-                    }
-                    val firstDocument = documents.value[0] as MapElement
-                    val firstDoc = Base64.getUrlEncoder().encodeToString(firstDocument.toCBOR())
+                    val documents = data.value[MapKey("documents")] as? ListElement ?: raise(WalletResponseValidationError.InvalidMdoc)
 
-                    // ---
+                    documents.value.forEach {
+                        val doc = it.value as? MapElement ?: raise(WalletResponseValidationError.InvalidMdoc)
+                        val encodedDoc = Base64.getUrlEncoder().encodeToString(doc.toCBOR())
+                        ensure(verifier.verifyChallenge(VpTokenFormat.MSOMDOC, encodedDoc, key)) {
+                            logger.error("MDoc verification failed for document")
+                            raise(WalletResponseValidationError.InvalidVPToken)
+                        }
+                    }
 
-                    val proofed = firstDoc.let {
-                        verifier.verifyChallenge(VpTokenFormat.MSOMDOC, it, key)
-                    }
-                    ensure(proofed) {
-                        raise(WalletResponseValidationError.InvalidVPToken)
-                    }
                     logger.info("Proofed MDOC with ZK")
                 }
 
@@ -313,16 +300,7 @@ class PostWalletResponseLive(
     }
 
     context(Raise<WalletResponseValidationError>)
-    private suspend fun checkMdocSignature(mdoc: String) {
-        val data = DataElement.fromCBOR<MapElement>(Base64.getUrlDecoder().decode(mdoc))
-        val documents = data.value[MapKey("documents")] as? ListElement
-        ensureNotNull(documents) {
-            logger.error("No documents found in MDoc")
-            WalletResponseValidationError.InvalidMdoc
-        }
-        val firstDocument = documents.value[0] as MapElement
-        val firstMDoc = MDoc.fromMapElement(firstDocument)
-
+    private suspend fun checkMdocSignature(token: String) {
         val issuerKeyId = "SPRIND Funke EUDI Wallet Prototype Issuer"
         val cryptoProvider = SimpleCOSECryptoProvider(
             listOf(
@@ -330,17 +308,25 @@ class PostWalletResponseLive(
             ),
         )
 
-        ensure(
-            firstMDoc.verify(
-                MDocVerificationParams(
-                    VerificationType.ISSUER_SIGNATURE and VerificationType.VALIDITY and VerificationType.DOC_TYPE,
-                    issuerKeyId,
+        val data = DataElement.fromCBOR<MapElement>(Base64.getUrlDecoder().decode(token))
+        val documents = data.value[MapKey("documents")] as? ListElement ?: raise(WalletResponseValidationError.InvalidMdoc)
+
+        documents.value.forEach {
+            val doc = it.value as? MapElement ?: raise(WalletResponseValidationError.InvalidMdoc)
+            val mDoc = MDoc.fromMapElement(doc)
+
+            ensure(
+                mDoc.verify(
+                    MDocVerificationParams(
+                        VerificationType.ISSUER_SIGNATURE and VerificationType.VALIDITY and VerificationType.DOC_TYPE,
+                        issuerKeyId,
+                    ),
+                    cryptoProvider,
                 ),
-                cryptoProvider,
-            ),
-        ) {
-            logger.error("MDoc verification failed")
-            WalletResponseValidationError.InvalidMdoc
+            ) {
+                logger.error("MDoc verification failed")
+                WalletResponseValidationError.InvalidMdoc
+            }
         }
     }
 
