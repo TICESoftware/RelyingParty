@@ -209,7 +209,8 @@ class PostWalletResponseLive(
                     val key = presentation.zkpKeys?.get(descriptorId)
                     ensureNotNull(key) { raise(WalletResponseValidationError.InvalidVPToken) }
 
-                    val proofed = token.let {
+                    val sdjwtToken = token.split("~")[0]
+                    val proofed = sdjwtToken.let {
                         verifier.verifyChallenge(VpTokenFormat.SDJWT, it, key)
                     }
                     ensure(proofed) {
