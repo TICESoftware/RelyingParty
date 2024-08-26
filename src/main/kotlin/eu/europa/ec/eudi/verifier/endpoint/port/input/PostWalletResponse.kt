@@ -328,7 +328,6 @@ class PostWalletResponseLive(
             logger.error("MDoc verification failed")
             WalletResponseValidationError.InvalidMdoc
         }
-
     }
 
     context(Raise<WalletResponseValidationError>)
