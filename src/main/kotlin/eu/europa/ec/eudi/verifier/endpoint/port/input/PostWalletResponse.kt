@@ -15,6 +15,7 @@
  */
 package eu.europa.ec.eudi.verifier.endpoint.port.input
 
+import COSE.AlgorithmID
 import arrow.core.None
 import arrow.core.Option
 import arrow.core.raise.Raise
@@ -33,7 +34,11 @@ import eu.europa.ec.eudi.verifier.endpoint.port.out.cfg.GenerateResponseCode
 import eu.europa.ec.eudi.verifier.endpoint.port.out.jose.VerifyJarmJwtSignature
 import eu.europa.ec.eudi.verifier.endpoint.port.out.persistence.LoadPresentationByRequestId
 import eu.europa.ec.eudi.verifier.endpoint.port.out.persistence.StorePresentation
-import id.walt.mdoc.doc.MDoc
+import id.walt.mdoc.COSECryptoProviderKeyInfo
+import id.walt.mdoc.SimpleCOSECryptoProvider
+import id.walt.mdoc.dataelement.DataElement
+import id.walt.mdoc.dataelement.MapElement
+import id.walt.mdoc.issuersigned.IssuerSigned
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import org.slf4j.Logger
@@ -41,6 +46,7 @@ import org.slf4j.LoggerFactory
 import software.tice.VpTokenFormat
 import software.tice.ZKPVerifier
 import java.time.Clock
+import java.util.Base64
 
 /**
  * Represent the Authorisation Response placed by wallet
@@ -61,6 +67,7 @@ sealed interface AuthorisationResponse {
 }
 
 sealed interface WalletResponseValidationError {
+    data object InvalidMdoc : WalletResponseValidationError
     data object InvalidFormat : WalletResponseValidationError
     data object InvalidVPToken : WalletResponseValidationError
     data object InvalidSDJwt : WalletResponseValidationError
@@ -162,15 +169,14 @@ class PostWalletResponseLive(
         // generate response depending on response method (DirectPost or DirectPostJwt)
         val responseObject = responseObject(walletResponse, presentation)
 
-        // TODO: Find out which format is used (if `...+zkp` or not) using:
-        // responseObject.presentationSubmission!!.descriptorMaps
-
-        // TODO: Verify signature
-        //   i.e. if format is e.g. `vc+sd-jwt+zkp`, call `ZKPVerifier(...).verifyChallenge(transactionId, VpTokenFormat.SDJWT, responseObject.vpToken`
-        //   (ZKPVerifier should be initialized centrally having the issuer public key hardcoded for now)
+        ensureNotNull(responseObject.presentationSubmission?.descriptorMaps) {
+            logger.error("Presentation submission missing")
+            WalletResponseValidationError.MissingVpTokenOrPresentationSubmission
+        }
 
         // map through the response and call the proper verification methods for every descriptor
         responseObject.presentationSubmission!!.descriptorMaps.map { descriptor ->
+            // TODO: ZKPVerifier should be injected via dependency injection
             val verifier = ZKPVerifier(getIssuerEcKey.toECPublicKey())
 
             val path = descriptor.path.value
@@ -187,26 +193,8 @@ class PostWalletResponseLive(
                 }
 
                 "mso_mdoc" -> {
-                    val presentedMdoc = MDoc.fromCBORHex(token)
-
-//                    val cryptoProvider = SimpleCOSECryptoProvider(listOf(
-//                        COSECryptoProviderKeyInfo(ISSUER_KEY_ID, AlgorithmID.ECDSA_256, getIssuerEcKey, null)
-//                    ))
-//
-//                    presentedMdoc.verify(
-//                        MDocVerificationParams(
-//                            VerificationType.ISSUER_SIGNATURE and VerificationType.VALIDITY,
-//                        ),
-//                        cryptoProvider
-//                    )
-
-                    // DEBUG OUTPUT, PRINT ALL ITEMS IN MDOC
-                    presentedMdoc.nameSpaces.forEach { ns ->
-                        println("Namespace: $ns")
-                        presentedMdoc.getIssuerSignedItems(ns).forEach { issuerSignedItem ->
-                            println("- ${issuerSignedItem.elementIdentifier.value}: ${issuerSignedItem.elementValue.value}")
-                        }
-                    }
+                    checkMdocSignature(token)
+                    logger.info("Successfully verified the mdoc")
                 }
 
                 "vc+sd-jwt+zkp" -> {
@@ -252,7 +240,9 @@ class PostWalletResponseLive(
         // Put wallet response into presentation object and store into db
         val submitted = submit(presentation, responseObject).also { storePresentation(it) }
 
-        return when (val getWalletResponseMethod = presentation.getWalletResponseMethod) {
+        return when (
+            val getWalletResponseMethod = presentation.getWalletResponseMethod
+        ) {
             is GetWalletResponseMethod.Redirect -> with(createQueryWalletResponseRedirectUri) {
                 requireNotNull(submitted.responseCode) { "ResponseCode expected in Submitted state but not found" }
                 val redirectUri = getWalletResponseMethod.redirectUri(submitted.responseCode)
@@ -300,6 +290,29 @@ class PostWalletResponseLive(
         } catch (e: Exception) {
             logger.error("Unexpected error during SD-JWT Verification: ${e.message}", e)
             raise(WalletResponseValidationError.InvalidSDJwt)
+        }
+    }
+
+    context(Raise<WalletResponseValidationError>)
+    private suspend fun checkMdocSignature(mdoc: String) {
+        val data = DataElement.fromCBOR<MapElement>(Base64.getUrlDecoder().decode(mdoc))
+        val issuerSigned = IssuerSigned.fromMapElement(data)
+
+        val keyId = "SPRIND Funke EUDI Wallet Prototype Issuer"
+        val cryptoProvider = SimpleCOSECryptoProvider(
+            listOf(
+                COSECryptoProviderKeyInfo(keyId, AlgorithmID.ECDSA_256, getIssuerEcKey.toECPublicKey(), null),
+            ),
+        )
+
+        ensureNotNull(issuerSigned.issuerAuth) {
+            logger.error("No issuerAuth found")
+            WalletResponseValidationError.InvalidMdoc
+        }
+
+        ensure(cryptoProvider.verify1(issuerSigned.issuerAuth!!, keyId)) {
+            logger.error("Verification failed")
+            WalletResponseValidationError.InvalidMdoc
         }
     }
 
