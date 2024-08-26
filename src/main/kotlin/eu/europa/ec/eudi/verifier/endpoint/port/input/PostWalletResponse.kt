@@ -224,7 +224,7 @@ class PostWalletResponseLive(
                     val documents = data.value[MapKey("documents")] as? ListElement ?: raise(WalletResponseValidationError.InvalidMdoc)
 
                     documents.value.forEach {
-                        val doc = it.value as? MapElement ?: raise(WalletResponseValidationError.InvalidMdoc)
+                        val doc = it as? MapElement ?: raise(WalletResponseValidationError.InvalidMdoc)
                         val encodedDoc = Base64.getUrlEncoder().encodeToString(doc.toCBOR())
                         ensure(verifier.verifyChallenge(VpTokenFormat.MSOMDOC, encodedDoc, key)) {
                             logger.error("MDoc verification failed for document")
@@ -312,7 +312,7 @@ class PostWalletResponseLive(
         val documents = data.value[MapKey("documents")] as? ListElement ?: raise(WalletResponseValidationError.InvalidMdoc)
 
         documents.value.forEach {
-            val doc = it.value as? MapElement ?: raise(WalletResponseValidationError.InvalidMdoc)
+            val doc = it as? MapElement ?: raise(WalletResponseValidationError.InvalidMdoc)
             val mDoc = MDoc.fromMapElement(doc)
 
             ensure(
