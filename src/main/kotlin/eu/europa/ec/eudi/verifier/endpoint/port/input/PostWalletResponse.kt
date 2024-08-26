@@ -226,7 +226,20 @@ class PostWalletResponseLive(
                     val key = presentation.zkpKeys?.get(descriptorId)
                     ensureNotNull(key) { raise(WalletResponseValidationError.InvalidVPToken) }
 
-                    val proofed = token.let {
+                    // ---
+
+                    val data = DataElement.fromCBOR<MapElement>(Base64.getUrlDecoder().decode(token))
+                    val documents = data.value[MapKey("documents")] as? ListElement
+                    ensureNotNull(documents) {
+                        logger.error("No documents found in MDoc")
+                        WalletResponseValidationError.InvalidMdoc
+                    }
+                    val firstDocument = documents.value[0] as MapElement
+                    val firstDoc = Base64.getUrlEncoder().encodeToString(firstDocument.toCBOR())
+
+                    // ---
+
+                    val proofed = firstDoc.let {
                         verifier.verifyChallenge(VpTokenFormat.MSOMDOC, it, key)
                     }
                     ensure(proofed) {
