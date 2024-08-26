@@ -37,8 +37,13 @@ import eu.europa.ec.eudi.verifier.endpoint.port.out.persistence.StorePresentatio
 import id.walt.mdoc.COSECryptoProviderKeyInfo
 import id.walt.mdoc.SimpleCOSECryptoProvider
 import id.walt.mdoc.dataelement.DataElement
+import id.walt.mdoc.dataelement.ListElement
 import id.walt.mdoc.dataelement.MapElement
-import id.walt.mdoc.issuersigned.IssuerSigned
+import id.walt.mdoc.dataelement.MapKey
+import id.walt.mdoc.doc.MDoc
+import id.walt.mdoc.doc.MDocVerificationParams
+import id.walt.mdoc.doc.VerificationType
+import id.walt.mdoc.doc.and
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import org.slf4j.Logger
@@ -296,24 +301,34 @@ class PostWalletResponseLive(
     context(Raise<WalletResponseValidationError>)
     private suspend fun checkMdocSignature(mdoc: String) {
         val data = DataElement.fromCBOR<MapElement>(Base64.getUrlDecoder().decode(mdoc))
-        val issuerSigned = IssuerSigned.fromMapElement(data)
+        val documents = data.value[MapKey("documents")] as? ListElement
+        ensureNotNull(documents) {
+            logger.error("No documents found in MDoc")
+            WalletResponseValidationError.InvalidMdoc
+        }
+        val firstDocument = documents.value[0] as MapElement
+        val firstMDoc = MDoc.fromMapElement(firstDocument)
 
-        val keyId = "SPRIND Funke EUDI Wallet Prototype Issuer"
+        val issuerKeyId = "SPRIND Funke EUDI Wallet Prototype Issuer"
         val cryptoProvider = SimpleCOSECryptoProvider(
             listOf(
-                COSECryptoProviderKeyInfo(keyId, AlgorithmID.ECDSA_256, getIssuerEcKey.toECPublicKey(), null),
+                COSECryptoProviderKeyInfo(issuerKeyId, AlgorithmID.ECDSA_256, getIssuerEcKey.toECPublicKey(), null),
             ),
         )
 
-        ensureNotNull(issuerSigned.issuerAuth) {
-            logger.error("No issuerAuth found")
+        ensure(
+            firstMDoc.verify(
+                MDocVerificationParams(
+                    VerificationType.ISSUER_SIGNATURE and VerificationType.VALIDITY and VerificationType.DOC_TYPE,
+                    issuerKeyId,
+                ),
+                cryptoProvider,
+            ),
+        ) {
+            logger.error("MDoc verification failed")
             WalletResponseValidationError.InvalidMdoc
         }
 
-        ensure(cryptoProvider.verify1(issuerSigned.issuerAuth!!, keyId)) {
-            logger.error("Verification failed")
-            WalletResponseValidationError.InvalidMdoc
-        }
     }
 
     context(Raise<WalletResponseValidationError>)
