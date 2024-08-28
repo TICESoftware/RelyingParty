@@ -17,8 +17,11 @@ package eu.europa.ec.eudi.verifier.endpoint.adapter.input.web
 
 import eu.europa.ec.eudi.verifier.endpoint.VerifierApplicationTest
 import eu.europa.ec.eudi.verifier.endpoint.domain.RequestId
+import eu.europa.ec.eudi.verifier.endpoint.domain.ResponseCode
 import eu.europa.ec.eudi.verifier.endpoint.domain.TransactionId
+import eu.europa.ec.eudi.verifier.endpoint.port.out.cfg.CreateQueryWalletResponseRedirectUri
 import kotlinx.coroutines.test.runTest
+import org.json.JSONObject
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation
 import org.junit.jupiter.api.TestMethodOrder
@@ -64,12 +67,12 @@ internal class WalletResponseDirectPostWithIdTokenAndVpTokenTest {
      */
     @Test
     @Order(value = 1)
-    @Disabled // until verification is complete
     fun `post wallet response (only idToken) - confirm returns 200`() = runTest {
         // given
         val initTransaction = VerifierApiClient.loadInitTransactionTO("02-presentationDefinition.json")
         val transactionInitialized = VerifierApiClient.initTransaction(client, initTransaction)
-        val requestId = RequestId(transactionInitialized.requestUri?.removePrefix("http://localhost:0/wallet/request.jwt/")!!)
+        val requestId =
+            RequestId(transactionInitialized.requestUri?.removePrefix("http://localhost:0/wallet/request.jwt/")!!)
         val presentationId = transactionInitialized.transactionId
         WalletApiClient.getRequestObject(client, transactionInitialized.requestUri!!)
 
@@ -95,14 +98,14 @@ internal class WalletResponseDirectPostWithIdTokenAndVpTokenTest {
      */
     @Test
     @Order(value = 2)
-    @Disabled // until verification is complete
+
     fun `get authorisation response - confirm returns 200`() = runTest {
         // given
         val initTransaction = VerifierApiClient.loadInitTransactionTO("02-presentationDefinition.json")
         val transactionInitialized = VerifierApiClient.initTransaction(client, initTransaction)
-        val presentationId = TransactionId(transactionInitialized.transactionId)
         val requestId =
             RequestId(transactionInitialized.requestUri?.removePrefix("http://localhost:0/wallet/request.jwt/")!!)
+        val presentationId = TransactionId(transactionInitialized.transactionId)
         WalletApiClient.getRequestObject(client, transactionInitialized.requestUri!!)
 
         val formEncodedBody: MultiValueMap<String, Any> = LinkedMultiValueMap()
@@ -111,40 +114,43 @@ internal class WalletResponseDirectPostWithIdTokenAndVpTokenTest {
         formEncodedBody.add("vp_token", TestUtils.loadResource("02-vpToken.json"))
         formEncodedBody.add("presentation_submission", TestUtils.loadResource("02-presentationSubmission.json"))
 
-        WalletApiClient.directPost(client, formEncodedBody)
+        val result = WalletApiClient.directPostWithResponse(client, formEncodedBody)
+        val responseCode = ResponseCode(value = result!!)
 
         // when
-        val response = VerifierApiClient.getWalletResponse(client, presentationId)
+        val response = VerifierApiClient.getWalletResponse(client, presentationId, responseCode)
 
         // then
         assertNotNull(response)
-    }
 
-    /**
-     * Verifies that a Transaction expecting a direct_post Wallet response, doesn't accept a direct_post.jwt Wallet response.
-     */
-    @Test
-    @Order(value = 3)
-    fun `with response_mode direct_post, direct_post_jwt wallet responses are rejected`() = runTest {
-        // given
-        val initTransaction = VerifierApiClient.loadInitTransactionTO("02-presentationDefinition.json")
-        val transactionInitialized = VerifierApiClient.initTransaction(client, initTransaction)
+        }
+
+
+        /**
+         * Verifies that a Transaction expecting a direct_post Wallet response, doesn't accept a direct_post.jwt Wallet response.
+         */
+        @Test
+        @Order(value = 3)
+        fun `with response_mode direct_post, direct_post_jwt wallet responses are rejected`() = runTest {
+            // given
+            val initTransaction = VerifierApiClient.loadInitTransactionTO("02-presentationDefinition.json")
+            val transactionInitialized = VerifierApiClient.initTransaction(client, initTransaction)
         val requestId = RequestId(transactionInitialized.requestUri?.removePrefix("http://localhost:0/wallet/request.jwt/")!!)
-        WalletApiClient.getRequestObject(client, transactionInitialized.requestUri!!)
+            WalletApiClient.getRequestObject(client, transactionInitialized.requestUri!!)
 
-        // At this point we don't generate an actual JARM response
-        // The response will be rejected before JARM parsing/verification takes place
-        val formEncodedBody: MultiValueMap<String, Any> = LinkedMultiValueMap()
-        formEncodedBody.add("response", "response")
-        formEncodedBody.add("state", requestId.value)
+            // At this point we don't generate an actual JARM response
+            // The response will be rejected before JARM parsing/verification takes place
+            val formEncodedBody: MultiValueMap<String, Any> = LinkedMultiValueMap()
+            formEncodedBody.add("response", "response")
+            formEncodedBody.add("state", requestId.value)
 
-        // send the wallet response
-        // we expect the response submission to fail
-        try {
-            WalletApiClient.directPostJwt(client, formEncodedBody)
-            fail("Expected direct_post.jwt submission to fail for direct_post Presentation")
-        } catch (error: AssertionError) {
-            assertEquals("Status expected:<200 OK> but was:<400 BAD_REQUEST>", error.message)
+            // send the wallet response
+            // we expect the response submission to fail
+            try {
+                WalletApiClient.directPostJwt(client, formEncodedBody)
+                fail("Expected direct_post.jwt submission to fail for direct_post Presentation")
+            } catch (error: AssertionError) {
+                assertEquals("Status expected:<200 OK> but was:<400 BAD_REQUEST>", error.message)
+            }
         }
     }
-}

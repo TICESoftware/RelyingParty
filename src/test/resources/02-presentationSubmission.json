@@ -4,7 +4,7 @@
   "descriptor_map": [
     {
       "id": "employment_input",
-      "format": "jwt_vc",
+      "format": "vc-sd-jwt",
       "path": "$.verifiableCredential[0]"
     }
   ]
