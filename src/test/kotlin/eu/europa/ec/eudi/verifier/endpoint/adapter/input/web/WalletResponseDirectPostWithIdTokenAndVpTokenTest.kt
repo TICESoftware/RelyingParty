@@ -165,6 +165,49 @@ internal class WalletResponseDirectPostWithIdTokenAndVpTokenTest {
 
     }
 
+    @Test
+    @Order(value = 5)
+
+    fun `fetch ephemeral key response for zkp flow - returns list of ephemeral keys`() = runTest {
+        // given
+        val initTransaction = VerifierApiClient.loadInitTransactionTO("02-presentationDefinitionWithRedirect.json")
+        val transactionInitialized = VerifierApiClient.initTransaction(client, initTransaction)
+        val requestId =
+            RequestId(transactionInitialized.requestUri?.removePrefix("http://localhost:0/wallet/request.jwt/")!!)
+        val presentationId = TransactionId(transactionInitialized.transactionId)
+        WalletApiClient.getRequestObject(client, transactionInitialized.requestUri!!)
+
+        // check whole zkp flow
+        // create challenge data
+        val parameters = AlgorithmParameters.getInstance("EC")
+        parameters.init(ECGenParameterSpec("secp256r1"))
+        val ecParameters = parameters.getParameterSpec(ECParameterSpec::class.java)
+        val ecKPGen = KeyPairGenerator.getInstance("EC")
+        ecKPGen.initialize(ecParameters)
+
+        val issuerKP = ecKPGen.generateKeyPair()
+        val issuerPublicKey = issuerKP.public as ECPublicKey
+
+        val message = "Some raw message".encodeToByteArray()
+        val signer = ECDSASigner(issuerKP.private, Curve.P_256)
+        val jwtHeader = JWSHeader(JWSAlgorithm.ES256)
+        val jwtSignature = signer.sign(jwtHeader, message)
+
+        val jwt = "${jwtHeader.toBase64URL()}.${Base64URL.encode(message)}.$jwtSignature"
+
+        val zkpGenerator = ZKPGenerator(issuerPublicKey)
+        val prover = ZKPProverSdJwt(zkpGenerator)
+
+        val challengeRequestData = prover.createChallengeRequest(jwt)
+
+        // when
+        val ephemeralKeys: List<EphemeralKeyResponse> =  WalletApiClient.fetchZkpKeys(client, challengeRequestData, requestId)
+        print("This is the $ephemeralKeys")
+
+        // then
+        assertNotNull(ephemeralKeys)
+    }
+
 
     /**
      * Verifies that a Transaction expecting a direct_post Wallet response, doesn't accept a direct_post.jwt Wallet response.
