@@ -184,7 +184,7 @@ class PostWalletResponseLive(
             responseObject.presentationSubmission!!.descriptorMaps.map { descriptor ->
 
             val path = descriptor.path.value
-            val token = responseObject.vpToken?.let { extractPresentation(it, path) }
+            val token = responseObject.vpToken.let { extractPresentation(it, path) }
             ensureNotNull(token) {
                 logger.error("Missing VPToken")
                 WalletResponseValidationError.MissingVpTokenOrPresentationSubmission
