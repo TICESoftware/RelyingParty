@@ -26,7 +26,6 @@ import eu.europa.ec.eudi.verifier.endpoint.port.input.WalletResponseAcceptedTO
 import eu.europa.ec.eudi.verifier.endpoint.port.out.cfg.CreateQueryWalletResponseRedirectUri
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation
 import org.junit.jupiter.api.TestMethodOrder
 import org.slf4j.Logger
@@ -83,7 +82,7 @@ internal class WalletResponseDirectPostWithIdTokenTest {
         val formEncodedBody: MultiValueMap<String, Any> = LinkedMultiValueMap()
         formEncodedBody.add("state", requestId.value)
         formEncodedBody.add("id_token", "value 1")
-        formEncodedBody.add("presentation_submission", TestUtils.loadResource("02-presentationSubmission.json"))
+        formEncodedBody.add("presentation_submission", TestUtils.loadResource("02-presentationSubmissionSdJwt.json"))
 
         // when
         WalletApiClient.directPost(client, formEncodedBody)
@@ -109,7 +108,7 @@ internal class WalletResponseDirectPostWithIdTokenTest {
         val formEncodedBody: MultiValueMap<String, Any> = LinkedMultiValueMap()
         formEncodedBody.add("state", requestId.value)
         formEncodedBody.add("id_token", "value 1")
-        formEncodedBody.add("presentation_submission", TestUtils.loadResource("02-presentationSubmission.json"))
+        formEncodedBody.add("presentation_submission", TestUtils.loadResource("02-presentationSubmissionSdJwt.json"))
 
         WalletApiClient.directPost(client, formEncodedBody)
 
@@ -142,7 +141,7 @@ internal class WalletResponseDirectPostWithIdTokenTest {
         val formEncodedBody: MultiValueMap<String, Any> = LinkedMultiValueMap()
         formEncodedBody.add("state", requestId.value)
         formEncodedBody.add("id_token", "value 1")
-        formEncodedBody.add("presentation_submission", TestUtils.loadResource("02-presentationSubmission.json"))
+        formEncodedBody.add("presentation_submission", TestUtils.loadResource("02-presentationSubmissionSdJwt.json"))
 
         WalletApiClient.directPost(
             client,
@@ -173,7 +172,7 @@ internal class WalletResponseDirectPostWithIdTokenTest {
         val formEncodedBody: MultiValueMap<String, Any> = LinkedMultiValueMap()
         formEncodedBody.add("state", requestId.value)
         formEncodedBody.add("id_token", "value 1")
-        formEncodedBody.add("presentation_submission", TestUtils.loadResource("02-presentationSubmission.json"))
+        formEncodedBody.add("presentation_submission", TestUtils.loadResource("02-presentationSubmissionSdJwt.json"))
 
         WalletApiClient.directPost(client, formEncodedBody)
 
@@ -208,7 +207,7 @@ internal class WalletResponseDirectPostWithIdTokenTest {
         val formEncodedBody: MultiValueMap<String, Any> = LinkedMultiValueMap()
         formEncodedBody.add("state", requestId.value)
         formEncodedBody.add("id_token", "value 1")
-        formEncodedBody.add("presentation_submission", TestUtils.loadResource("02-presentationSubmission.json"))
+        formEncodedBody.add("presentation_submission", TestUtils.loadResource("02-presentationSubmissionSdJwt.json"))
 
         WalletApiClient.directPost(client, formEncodedBody)
 
@@ -242,7 +241,7 @@ internal class WalletResponseDirectPostWithIdTokenTest {
         val formEncodedBody: MultiValueMap<String, Any> = LinkedMultiValueMap()
         formEncodedBody.add("state", requestId.value)
         formEncodedBody.add("id_token", "value 1")
-        formEncodedBody.add("presentation_submission", TestUtils.loadResource("02-presentationSubmission.json"))
+        formEncodedBody.add("presentation_submission", TestUtils.loadResource("02-presentationSubmissionSdJwt.json"))
 
         var responseCode: String? = null
         WalletApiClient.directPost(
