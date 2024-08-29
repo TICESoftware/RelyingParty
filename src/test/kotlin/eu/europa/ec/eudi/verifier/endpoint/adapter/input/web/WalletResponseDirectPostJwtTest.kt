@@ -82,7 +82,6 @@ internal class WalletResponseDirectPostJwtTest {
      */
     @Test
     @Order(value = 1)
-    @Disabled // until verification is complete
     fun `direct_post_jwt vp_token end to end`() = runTest {
         // given
         val idToken = "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NkstUiJ9.eyJzdWIiOiJib2IiLCJpc3MiOiJtZSIsImF1ZCI6InlvdSIs"

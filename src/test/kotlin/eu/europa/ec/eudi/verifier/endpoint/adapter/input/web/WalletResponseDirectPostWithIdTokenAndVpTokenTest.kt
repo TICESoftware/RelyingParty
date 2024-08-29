@@ -99,9 +99,9 @@ internal class WalletResponseDirectPostWithIdTokenAndVpTokenTest {
     @Test
     @Order(value = 2)
 
-    fun `get authorisation response - confirm returns 200`() = runTest {
+    fun `get wallet response for format vc+sd-jwt - confirm returns 200`() = runTest {
         // given
-        val initTransaction = VerifierApiClient.loadInitTransactionTO("02-presentationDefinition.json")
+        val initTransaction = VerifierApiClient.loadInitTransactionTO("02-presentationDefinitionWithRedirect.json")
         val transactionInitialized = VerifierApiClient.initTransaction(client, initTransaction)
         val requestId =
             RequestId(transactionInitialized.requestUri?.removePrefix("http://localhost:0/wallet/request.jwt/")!!)
@@ -112,7 +112,7 @@ internal class WalletResponseDirectPostWithIdTokenAndVpTokenTest {
         formEncodedBody.add("state", requestId.value)
         formEncodedBody.add("id_token", "value 1")
         formEncodedBody.add("vp_token", TestUtils.loadResource("02-vpToken.json"))
-        formEncodedBody.add("presentation_submission", TestUtils.loadResource("02-presentationSubmission.json"))
+        formEncodedBody.add("presentation_submission",  TestUtils.loadResource("02-presentationSubmission.json"))
 
         val result = WalletApiClient.directPostWithResponse(client, formEncodedBody)
         val responseCode = ResponseCode(value = result!!)

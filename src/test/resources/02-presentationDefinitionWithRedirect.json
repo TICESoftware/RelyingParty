@@ -1,6 +1,7 @@
 {
   "type": "vp_token id_token",
   "id_token_type": "subject_signed_id_token",
+  "wallet_response_redirect_uri_template": "http://localhost:0/wallet-redirect#response_code={RESPONSE_CODE}",
   "presentation_definition": {
     "id": "32f54163-7166-48f1-93d8-ff217bdb0653",
     "input_descriptors": [

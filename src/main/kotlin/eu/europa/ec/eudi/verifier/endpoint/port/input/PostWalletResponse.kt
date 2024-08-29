@@ -179,69 +179,69 @@ class PostWalletResponseLive(
             logger.error("Presentation submission missing")
             WalletResponseValidationError.MissingVpTokenOrPresentationSubmission
         }
+        if (responseObject.vpToken !== null) {
+            //map through the response and call the proper verification methods for every descriptor
+            responseObject.presentationSubmission!!.descriptorMaps.map { descriptor ->
 
-        // map through the response and call the proper verification methods for every descriptor
-//        responseObject.presentationSubmission!!.descriptorMaps.map { descriptor ->
-//            val verifier = ZKPVerifier(getIssuerEcKey.toECPublicKey())
-//
-//            val path = descriptor.path.value
-//            val token = responseObject.vpToken?.let { extractPresentation(it, path) }
-//            ensureNotNull(token) {
-//                logger.error("Missing VPToken")
-//                WalletResponseValidationError.MissingVpTokenOrPresentationSubmission
-//            }
-//
-//            when (descriptor.format) {
-//                "vc+sd-jwt" -> {
-//                    checkSdJwtSignature(token)
-//                    logger.info("Successfully verified the sdjwt")
-//                }
-//
-//                "mso_mdoc" -> {
-//                    checkMdocSignature(token)
-//                    logger.info("Successfully verified the mdoc")
-//                }
-//
-//                "vc+sd-jwt+zkp" -> {
-//                    logger.info("Starting zkp verification for SDJWT")
-//                    val descriptorId: String = descriptor.id.value
-//
-//                    val key = presentation.zkpKeys?.get(descriptorId) ?: raise(WalletResponseValidationError.InvalidVPToken)
-//
-//                    val sdjwtToken = token.split("~").first()
-//                    ensure(verifier.verifyChallenge(VpTokenFormat.SDJWT, sdjwtToken, key)) {
-//                        raise(WalletResponseValidationError.InvalidVPToken)
-//                    }
-//                    logger.info("Proofed SD-JWT with ZK")
-//                }
-//
-//                "mso_mdoc+zkp" -> {
-//                    logger.info("Starting zkp verification for mDoc")
-//                    val descriptorId: String = descriptor.id.value
-//                    val key = presentation.zkpKeys?.get(descriptorId) ?: raise(WalletResponseValidationError.InvalidVPToken)
-//
-//                    val data = DataElement.fromCBOR<MapElement>(Base64.getUrlDecoder().decode(token))
-//                    val documents = data.value[MapKey("documents")] as? ListElement ?: raise(WalletResponseValidationError.InvalidMdoc)
-//
-//                    documents.value.forEach {
-//                        val doc = it as? MapElement ?: raise(WalletResponseValidationError.InvalidMdoc)
-//                        val encodedDoc = Base64.getUrlEncoder().encodeToString(doc.toCBOR())
-//                        ensure(verifier.verifyChallenge(VpTokenFormat.MSOMDOC, encodedDoc, key)) {
-//                            logger.error("MDoc verification failed for document")
-//                            raise(WalletResponseValidationError.InvalidVPToken)
-//                        }
-//                    }
-//
-//                    logger.info("Proofed MDOC with ZK")
-//                }
-//
-//                else -> {
-//                    logger.error("Unknown format in descriptor path: ${descriptor.path}")
-//                    raise(WalletResponseValidationError.InvalidFormat)
-//                }
-//            }
-//        }
+            val path = descriptor.path.value
+            val token = responseObject.vpToken?.let { extractPresentation(it, path) }
+            ensureNotNull(token) {
+                logger.error("Missing VPToken")
+                WalletResponseValidationError.MissingVpTokenOrPresentationSubmission
+            }
 
+            when (descriptor.format) {
+                "vc+sd-jwt" -> {
+                    checkSdJwtSignature(token)
+                    logger.info("Successfully verified the sdjwt")
+                }
+
+                "mso_mdoc" -> {
+                    checkMdocSignature(token)
+                    logger.info("Successfully verified the mdoc")
+                }
+
+                "vc+sd-jwt+zkp" -> {
+                    logger.info("Starting zkp verification for SDJWT")
+                    val descriptorId: String = descriptor.id.value
+
+                    val key = presentation.zkpKeys?.get(descriptorId) ?: raise(WalletResponseValidationError.InvalidVPToken)
+
+                    val sdjwtToken = token.split("~").first()
+                    ensure(zkpVerifier.verifyChallenge(VpTokenFormat.SDJWT, sdjwtToken, key)) {
+                        raise(WalletResponseValidationError.InvalidVPToken)
+                    }
+                    logger.info("Proofed SD-JWT with ZK")
+                }
+
+                "mso_mdoc+zkp" -> {
+                    logger.info("Starting zkp verification for mDoc")
+                    val descriptorId: String = descriptor.id.value
+                    val key = presentation.zkpKeys?.get(descriptorId) ?: raise(WalletResponseValidationError.InvalidVPToken)
+
+                    val data = DataElement.fromCBOR<MapElement>(Base64.getUrlDecoder().decode(token))
+                    val documents =
+                        data.value[MapKey("documents")] as? ListElement ?: raise(WalletResponseValidationError.InvalidMdoc)
+
+                    documents.value.forEach {
+                        val doc = it as? MapElement ?: raise(WalletResponseValidationError.InvalidMdoc)
+                        val encodedDoc = Base64.getUrlEncoder().encodeToString(doc.toCBOR())
+                        ensure(zkpVerifier.verifyChallenge(VpTokenFormat.MSOMDOC, encodedDoc, key)) {
+                            logger.error("MDoc verification failed for document")
+                            raise(WalletResponseValidationError.InvalidVPToken)
+                        }
+                    }
+
+                    logger.info("Proofed MDOC with ZK")
+                }
+
+                else -> {
+                    logger.error("Unknown format in descriptor path: ${descriptor.path}")
+                    raise(WalletResponseValidationError.InvalidFormat)
+                }
+            }
+        }
+        }
         // for this use case (let frontend display the submitted data) we store the wallet response
         // Put wallet response into presentation object and store into db
         val submitted = submit(presentation, responseObject).also { storePresentation(it) }
