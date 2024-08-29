@@ -153,6 +153,7 @@ class PostWalletResponseLive(
     private val generateResponseCode: GenerateResponseCode,
     private val createQueryWalletResponseRedirectUri: CreateQueryWalletResponseRedirectUri,
     private val getIssuerEcKey: ECKey,
+    private val zkpVerifier: ZKPVerifier
 ) : PostWalletResponse {
 
     private val logger: Logger = LoggerFactory.getLogger(PostWalletResponseLive::class.java)
@@ -181,7 +182,6 @@ class PostWalletResponseLive(
 
         // map through the response and call the proper verification methods for every descriptor
 //        responseObject.presentationSubmission!!.descriptorMaps.map { descriptor ->
-//            // TODO: ZKPVerifier should be injected via dependency injection
 //            val verifier = ZKPVerifier(getIssuerEcKey.toECPublicKey())
 //
 //            val path = descriptor.path.value
