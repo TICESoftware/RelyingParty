@@ -18,9 +18,6 @@ package eu.europa.ec.eudi.verifier.endpoint.port.input
 import COSE.AlgorithmID
 import arrow.core.None
 import arrow.core.Option
-import arrow.core.raise.Raise
-import arrow.core.raise.ensure
-import arrow.core.raise.ensureNotNull
 import arrow.core.some
 import com.nimbusds.jose.crypto.ECDSAVerifier
 import com.nimbusds.jose.jwk.ECKey
@@ -140,7 +137,6 @@ data class WalletResponseAcceptedTO(
  */
 fun interface PostWalletResponse {
 
-    context(Raise<WalletResponseValidationError>)
     suspend operator fun invoke(walletResponse: AuthorisationResponse): Option<WalletResponseAcceptedTO>
 }
 
@@ -158,14 +154,13 @@ class PostWalletResponseLive(
 
     private val logger: Logger = LoggerFactory.getLogger(PostWalletResponseLive::class.java)
 
-    context(Raise<WalletResponseValidationError>)
     override suspend operator fun invoke(walletResponse: AuthorisationResponse): Option<WalletResponseAcceptedTO> {
         val presentation = loadPresentation(walletResponse)
 
         // Verify the AuthorisationResponse matches what is expected for the Presentation
         val responseMode = walletResponse.responseMode()
-        ensure(presentation.responseMode == responseMode) {
-            WalletResponseValidationError.UnexpectedResponseMode(
+        if (presentation.responseMode != responseMode) {
+            throw WalletResponseValidationError.UnexpectedResponseMode(
                 presentation.requestId,
                 expected = presentation.responseMode,
                 actual = responseMode,
@@ -175,17 +170,17 @@ class PostWalletResponseLive(
         // generate response depending on response method (DirectPost or DirectPostJwt)
         val responseObject = responseObject(walletResponse, presentation)
 
-        ensureNotNull(responseObject.presentationSubmission?.descriptorMaps) {
+        if (responseObject.presentationSubmission?.descriptorMaps == null) {
             logger.error("Presentation submission missing")
             throw WalletResponseValidationError.MissingVpTokenOrPresentationSubmission()
         }
         if (responseObject.vpToken !== null) {
             //map through the response and call the proper verification methods for every descriptor
-            responseObject.presentationSubmission!!.descriptorMaps.map { descriptor ->
+            responseObject.presentationSubmission.descriptorMaps.map { descriptor ->
 
             val path = descriptor.path.value
             val token = extractPresentation(responseObject.vpToken, path)
-            ensureNotNull(token) {
+            if (token == null) {
                 logger.error("Missing VPToken")
                 throw WalletResponseValidationError.MissingVpTokenOrPresentationSubmission()
             }
@@ -208,7 +203,7 @@ class PostWalletResponseLive(
                     val key = presentation.zkpKeys?.get(descriptorId) ?: throw WalletResponseValidationError.InvalidVPToken()
 
                     val sdjwtToken = token.split("~").first()
-                    ensure(zkpVerifier.verifyChallenge(VpTokenFormat.SDJWT, sdjwtToken, key)) {
+                    if (!zkpVerifier.verifyChallenge(VpTokenFormat.SDJWT, sdjwtToken, key)) {
                      throw WalletResponseValidationError.InvalidVPToken()
                     }
                     logger.info("Proofed SD-JWT with ZK")
@@ -226,7 +221,7 @@ class PostWalletResponseLive(
                     documents.value.forEach {
                         val doc = it as? MapElement ?: throw WalletResponseValidationError.InvalidMdoc()
                         val encodedDoc = Base64.getUrlEncoder().encodeToString(doc.toCBOR())
-                        ensure(zkpVerifier.verifyChallenge(VpTokenFormat.MSOMDOC, encodedDoc, key)) {
+                        if (!zkpVerifier.verifyChallenge(VpTokenFormat.MSOMDOC, encodedDoc, key)) {
                             logger.error("MDoc verification failed for document")
                             throw WalletResponseValidationError.InvalidVPToken()
                         }
@@ -259,20 +254,19 @@ class PostWalletResponseLive(
         }
     }
 
-    context(Raise<WalletResponseValidationError>)
-    private suspend fun loadPresentation(walletResponse: AuthorisationResponse): RequestObjectRetrieved {
+    suspend fun loadPresentation(walletResponse: AuthorisationResponse): RequestObjectRetrieved {
         val state = when (walletResponse) {
             is AuthorisationResponse.DirectPost -> walletResponse.response.state
             is AuthorisationResponse.DirectPostJwt -> walletResponse.state
         }
-        ensureNotNull(state) { throw WalletResponseValidationError.MissingState() }
+        if (state == null) { throw WalletResponseValidationError.MissingState() }
         val requestId = RequestId(state)
 
         val presentation = loadPresentationByRequestId(requestId)
 
-        ensureNotNull(presentation) { WalletResponseValidationError.PresentationDefinitionNotFound(requestId) }
-        ensure(presentation is RequestObjectRetrieved) {
-            WalletResponseValidationError.PresentationNotInExpectedState(
+        if (presentation == null) { WalletResponseValidationError.PresentationDefinitionNotFound(requestId) }
+        if (presentation !is RequestObjectRetrieved) {
+            throw WalletResponseValidationError.PresentationNotInExpectedState(
                 requestId,
             )
         }
@@ -344,7 +338,7 @@ class PostWalletResponseLive(
         }
     }
 
-    private suspend fun submit(
+     suspend fun submit(
         presentation: RequestObjectRetrieved,
         responseObject: AuthorisationResponseTO,
     ): Presentation.Submitted {

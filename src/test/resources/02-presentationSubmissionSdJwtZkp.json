@@ -3,7 +3,7 @@
   "definition_id": "32f54163-7166-48f1-93d8-ff217bdb0653",
   "descriptor_map": [
     {
-      "id": "employment_input",
+      "id": "id",
       "format": "vc+sd-jwt+zkp",
       "path": "$"
     }

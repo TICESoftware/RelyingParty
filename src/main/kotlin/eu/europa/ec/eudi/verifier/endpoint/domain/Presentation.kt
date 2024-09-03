@@ -197,7 +197,7 @@ sealed interface Presentation {
     /**
      * A presentation process that has been just submitted by the wallet to the verifier backend
      */
-    class Submitted private constructor(
+    class Submitted(
         override val id: TransactionId,
         override val initiatedAt: Instant,
         override val type: PresentationType,

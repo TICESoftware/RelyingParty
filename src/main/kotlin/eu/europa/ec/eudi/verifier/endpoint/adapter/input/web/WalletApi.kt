@@ -15,6 +15,8 @@
  */
 package eu.europa.ec.eudi.verifier.endpoint.adapter.input.web
 
+import arrow.core.None
+import arrow.core.Some
 import arrow.core.getOrElse
 import arrow.core.raise.either
 import com.nimbusds.jose.jwk.JWK
@@ -108,155 +110,153 @@ class WalletApi(
      * the [AuthorisationResponse], containing the id_token, presentation_submission
      * and the verifiableCredentials
      */
-    private suspend fun handlePostWalletResponse(req: ServerRequest): ServerResponse = try {
+    private suspend fun handlePostWalletResponse(req: ServerRequest): ServerResponse {
         logger.info("Handling PostWalletResponse ...")
-        val walletResponse = req.awaitFormData().walletResponse()
-        val outcome = either { postWalletResponse(walletResponse) }
-        outcome.fold(
-            ifRight = { response ->
-                logger.info("PostWalletResponse processed")
-                logger.info(
-                    response.fold(
-                        { "Verifier UI will poll for Wallet Response" },
-                        { "Wallet must redirect to ${it.redirectUri}" },
-                    ),
-                )
-                ok().json().bodyValueAndAwait(response.getOrElse { JsonObject(emptyMap()) })
-            },
-            ifLeft = { error ->
-                logger.error("$error while handling post of wallet response ")
-                badRequest().buildAndAwait()
-            },
-        )
-    } catch (t: SerializationException) {
-        logger.error("While handling post of wallet response failed to decode JSON", t)
-        badRequest().buildAndAwait()
-    }
+        return try {
+            val walletResponse = req.awaitFormData().walletResponse()
+            when (val outcome = postWalletResponse(walletResponse)) {
+                is Some -> {
+                    val response = outcome.value
+                    logger.info("PostWalletResponse processed")
+                    logger.info("Wallet must redirect to ${response.redirectUri}")
+                    ok().json().bodyValueAndAwait(response)
+                }
 
-    private suspend fun handleGetPublicJwkSet(): ServerResponse {
-        logger.info("Handling GetPublicJwkSet ...")
-        val publicJwkSet = JWKSet(signingKey).toJSONObject(true)
-        return ok().contentType(MediaType.parseMediaType(JWKSet.MIME_TYPE)).bodyValueAndAwait(publicJwkSet)
-    }
-
-    /**
-     * Handles the GET request for fetching the JWKS to be used for JARM.
-     */
-    private suspend fun handleGetJarmJwks(request: ServerRequest): ServerResponse {
-        val requestId = request.requestId().also { logger.info("Handling GetJarmJwks for $it...") }
-        return when (val queryResponse = getJarmJwks(requestId)) {
-            is NotFound -> notFound().buildAndAwait()
-            is InvalidState -> badRequest().buildAndAwait()
-            is Found -> ok().contentType(MediaType.parseMediaType(JWKSet.MIME_TYPE))
-                .bodyValueAndAwait(queryResponse.value.toJSONObject(true))
-        }
-    }
-
-    /**
-     * Handles the POST request for fetching the ephemeral keys used for the ZKP.
-     */
-
-    private suspend fun handlePostZkpJwk(request: ServerRequest): ServerResponse = try {
-        logger.info("Handling PostZkpJwk ...")
-        val requestId = request.requestId()
-        logger.info("RequestID PostZkpJwk for $requestId ")
-        val outcome = either { postZkpJwkRequest(request, requestId) }
-        outcome.fold(
-            ifRight = { jwkSet: List<EphemeralKeyResponse> ->
-                logger.info("PostZkpJwk processed")
-                ok().json().bodyValueAndAwait(jwkSet)
-            },
-            ifLeft = { error: ZkpJwkError ->
-                logger.error("$error while handling post of ZkpJwk")
-                badRequest().buildAndAwait()
-            },
-        )
-    } catch (t: SerializationException) {
-        logger.error("While handling post of ZkpJwk, failed to decode JSON", t)
-        badRequest().buildAndAwait()
-    }
-
-    companion object {
-        const val GET_PUBLIC_JWK_SET_PATH = "/wallet/public-keys.json"
-
-        /**
-         * Path template for the route for
-         * getting the presentation's request object
-         */
-        const val REQUEST_JWT_PATH = "/wallet/request.jwt/{requestId}"
-
-        /**
-         * Path template for the route for
-         * getting the presentation definition
-         */
-        const val PRESENTATION_DEFINITION_PATH = "/wallet/pd/{requestId}"
-
-        /**
-         * Path template for the route for
-         * getting the JWKS containing parameters for the
-         * zero-knowledge proof
-         */
-        const val ZKP_JWK_SET_PATH = "/wallet/zkp/{requestId}/jwks.json"
-
-        /**
-         * Path template for the route for getting the JWKS that contains the Ephemeral Key for JARM.
-         */
-        const val JARM_JWK_SET_PATH = "/wallet/jarm/{requestId}/jwks.json"
-
-        /**
-         * Path template for the route for
-         * posting the Authorisation Response
-         */
-        const val WALLET_RESPONSE_PATH = "/wallet/direct_post"
-
-        /**
-         * Extracts from the request the [RequestId]
-         */
-        private fun ServerRequest.requestId() = RequestId(pathVariable("requestId"))
-
-        private fun MultiValueMap<String, String>.walletResponse(): AuthorisationResponse {
-            fun directPost() = AuthorisationResponseTO(
-                state = getFirst("state"),
-                idToken = getFirst("id_token"),
-                vpToken = getFirst("vp_token"),
-                presentationSubmission = getFirst("presentation_submission")?.let {
-                    PresentationExchange.jsonParser.decodePresentationSubmission(it).getOrThrow()
-                },
-                error = getFirst("error"),
-                errorDescription = getFirst("error_description"),
-            ).run { AuthorisationResponse.DirectPost(this) }
-
-            fun directPostJwt() = getFirst("response")?.let { jwt ->
-                AuthorisationResponse.DirectPostJwt(getFirst("state"), jwt)
+                is None -> {
+                    logger.info("PostWalletResponse processed. Verifier UI will poll for Wallet Response")
+                    ok().buildAndAwait()
+                }
             }
-
-            return directPostJwt() ?: directPost()
-        }
-
-        fun requestZkpKey(baseUrl: String): EmbedOption.ByReference<RequestId> =
-            urlBuilder(baseUrl = baseUrl, pathTemplate = ZKP_JWK_SET_PATH)
-
-        fun requestJwtByReference(baseUrl: String): EmbedOption.ByReference<RequestId> =
-            urlBuilder(baseUrl = baseUrl, pathTemplate = REQUEST_JWT_PATH)
-
-        fun presentationDefinitionByReference(baseUrl: String): EmbedOption.ByReference<RequestId> =
-            urlBuilder(baseUrl = baseUrl, pathTemplate = PRESENTATION_DEFINITION_PATH)
-
-        fun publicJwkSet(baseUrl: String): EmbedOption.ByReference<Any> = EmbedOption.ByReference { _ ->
-            DefaultUriBuilderFactory(baseUrl).uriString(GET_PUBLIC_JWK_SET_PATH).build().toURL()
-        }
-
-        fun jarmJwksByReference(baseUrl: String): EmbedOption.ByReference<RequestId> =
-            urlBuilder(baseUrl, JARM_JWK_SET_PATH)
-
-        fun directPost(baseUrl: String): URL =
-            DefaultUriBuilderFactory(baseUrl).uriString(WALLET_RESPONSE_PATH).build().toURL()
-
-        private fun urlBuilder(
-            baseUrl: String,
-            pathTemplate: String,
-        ) = EmbedOption.byReference<RequestId> { requestId ->
-            DefaultUriBuilderFactory(baseUrl).uriString(pathTemplate).build(requestId.value).toURL()
+        } catch (e: WalletResponseValidationError) {
+            logger.error("Validation error while handling post of wallet response: ${e.javaClass.simpleName}")
+            badRequest().buildAndAwait()
         }
     }
+
+private suspend fun handleGetPublicJwkSet(): ServerResponse {
+    logger.info("Handling GetPublicJwkSet ...")
+    val publicJwkSet = JWKSet(signingKey).toJSONObject(true)
+    return ok().contentType(MediaType.parseMediaType(JWKSet.MIME_TYPE)).bodyValueAndAwait(publicJwkSet)
+}
+
+/**
+ * Handles the GET request for fetching the JWKS to be used for JARM.
+ */
+private suspend fun handleGetJarmJwks(request: ServerRequest): ServerResponse {
+    val requestId = request.requestId().also { logger.info("Handling GetJarmJwks for $it...") }
+    return when (val queryResponse = getJarmJwks(requestId)) {
+        is NotFound -> notFound().buildAndAwait()
+        is InvalidState -> badRequest().buildAndAwait()
+        is Found -> ok().contentType(MediaType.parseMediaType(JWKSet.MIME_TYPE))
+            .bodyValueAndAwait(queryResponse.value.toJSONObject(true))
+    }
+}
+
+/**
+ * Handles the POST request for fetching the ephemeral keys used for the ZKP.
+ */
+
+private suspend fun handlePostZkpJwk(request: ServerRequest): ServerResponse = try {
+    logger.info("Handling PostZkpJwk ...")
+    val requestId = request.requestId()
+    logger.info("RequestID PostZkpJwk for $requestId ")
+    val outcome = either { postZkpJwkRequest(request, requestId) }
+    outcome.fold(
+        ifRight = { jwkSet: List<EphemeralKeyResponse> ->
+            logger.info("PostZkpJwk processed")
+            ok().json().bodyValueAndAwait(jwkSet)
+        },
+        ifLeft = { error: ZkpJwkError ->
+            logger.error("$error while handling post of ZkpJwk")
+            badRequest().buildAndAwait()
+        },
+    )
+} catch (t: SerializationException) {
+    logger.error("While handling post of ZkpJwk, failed to decode JSON", t)
+    badRequest().buildAndAwait()
+}
+
+companion object {
+    const val GET_PUBLIC_JWK_SET_PATH = "/wallet/public-keys.json"
+
+    /**
+     * Path template for the route for
+     * getting the presentation's request object
+     */
+    const val REQUEST_JWT_PATH = "/wallet/request.jwt/{requestId}"
+
+    /**
+     * Path template for the route for
+     * getting the presentation definition
+     */
+    const val PRESENTATION_DEFINITION_PATH = "/wallet/pd/{requestId}"
+
+    /**
+     * Path template for the route for
+     * getting the JWKS containing parameters for the
+     * zero-knowledge proof
+     */
+    const val ZKP_JWK_SET_PATH = "/wallet/zkp/{requestId}/jwks.json"
+
+    /**
+     * Path template for the route for getting the JWKS that contains the Ephemeral Key for JARM.
+     */
+    const val JARM_JWK_SET_PATH = "/wallet/jarm/{requestId}/jwks.json"
+
+    /**
+     * Path template for the route for
+     * posting the Authorisation Response
+     */
+    const val WALLET_RESPONSE_PATH = "/wallet/direct_post"
+
+    /**
+     * Extracts from the request the [RequestId]
+     */
+    private fun ServerRequest.requestId() = RequestId(pathVariable("requestId"))
+
+    private fun MultiValueMap<String, String>.walletResponse(): AuthorisationResponse {
+        fun directPost() = AuthorisationResponseTO(
+            state = getFirst("state"),
+            idToken = getFirst("id_token"),
+            vpToken = getFirst("vp_token"),
+            presentationSubmission = getFirst("presentation_submission")?.let {
+                PresentationExchange.jsonParser.decodePresentationSubmission(it).getOrThrow()
+            },
+            error = getFirst("error"),
+            errorDescription = getFirst("error_description"),
+        ).run { AuthorisationResponse.DirectPost(this) }
+
+        fun directPostJwt() = getFirst("response")?.let { jwt ->
+            AuthorisationResponse.DirectPostJwt(getFirst("state"), jwt)
+        }
+
+        return directPostJwt() ?: directPost()
+    }
+
+    fun requestZkpKey(baseUrl: String): EmbedOption.ByReference<RequestId> =
+        urlBuilder(baseUrl = baseUrl, pathTemplate = ZKP_JWK_SET_PATH)
+
+    fun requestJwtByReference(baseUrl: String): EmbedOption.ByReference<RequestId> =
+        urlBuilder(baseUrl = baseUrl, pathTemplate = REQUEST_JWT_PATH)
+
+    fun presentationDefinitionByReference(baseUrl: String): EmbedOption.ByReference<RequestId> =
+        urlBuilder(baseUrl = baseUrl, pathTemplate = PRESENTATION_DEFINITION_PATH)
+
+    fun publicJwkSet(baseUrl: String): EmbedOption.ByReference<Any> = EmbedOption.ByReference { _ ->
+        DefaultUriBuilderFactory(baseUrl).uriString(GET_PUBLIC_JWK_SET_PATH).build().toURL()
+    }
+
+    fun jarmJwksByReference(baseUrl: String): EmbedOption.ByReference<RequestId> =
+        urlBuilder(baseUrl, JARM_JWK_SET_PATH)
+
+    fun directPost(baseUrl: String): URL =
+        DefaultUriBuilderFactory(baseUrl).uriString(WALLET_RESPONSE_PATH).build().toURL()
+
+    private fun urlBuilder(
+        baseUrl: String,
+        pathTemplate: String,
+    ) = EmbedOption.byReference<RequestId> { requestId ->
+        DefaultUriBuilderFactory(baseUrl).uriString(pathTemplate).build(requestId.value).toURL()
+    }
+}
 }
