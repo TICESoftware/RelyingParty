@@ -25,9 +25,11 @@ import eu.europa.ec.eudi.verifier.endpoint.domain.RequestId
 import eu.europa.ec.eudi.verifier.endpoint.domain.ResponseCode
 import eu.europa.ec.eudi.verifier.endpoint.domain.TransactionId
 import eu.europa.ec.eudi.verifier.endpoint.port.input.EphemeralKeyResponse
+import eu.europa.ec.eudi.verifier.endpoint.port.input.WalletResponseValidationError
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation
 import org.junit.jupiter.api.TestMethodOrder
+import org.junit.jupiter.api.assertThrows
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -46,10 +48,7 @@ import java.security.KeyPairGenerator
 import java.security.interfaces.ECPublicKey
 import java.security.spec.ECGenParameterSpec
 import java.security.spec.ECParameterSpec
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
-import kotlin.test.fail
+import kotlin.test.*
 
 @VerifierApplicationTest
 @TestPropertySource(
@@ -135,6 +134,34 @@ internal class WalletResponseDirectPostWithIdTokenAndVpTokenTest {
         assertNotNull(response)
 
     }
+@Test
+
+    fun `missing vpToken - fails with MissingVpTokenOrPresentationSubmission`() = runTest {
+        // given
+        val initTransaction = VerifierApiClient.loadInitTransactionTO("02-presentationDefinitionWithRedirect.json")
+        val transactionInitialized = VerifierApiClient.initTransaction(client, initTransaction)
+        val requestId =
+            RequestId(transactionInitialized.requestUri?.removePrefix("http://localhost:0/wallet/request.jwt/")!!)
+        val presentationId = TransactionId(transactionInitialized.transactionId)
+        WalletApiClient.getRequestObject(client, transactionInitialized.requestUri!!)
+
+        val formEncodedBody: MultiValueMap<String, Any> = LinkedMultiValueMap()
+        formEncodedBody.add("state", requestId.value)
+        formEncodedBody.add("id_token", "value 1")
+        formEncodedBody.add("vp_token", null)
+        formEncodedBody.add("presentation_submission", TestUtils.loadResource("02-presentationSubmissionSdJwt.json"))
+
+        val result = WalletApiClient.directPostWithResponse(client, formEncodedBody)
+        val responseCode = ResponseCode(value = result!!)
+
+        // when
+        try {
+            VerifierApiClient.getWalletResponse(client, presentationId, responseCode)
+        } catch (e: AssertionError) {}
+
+
+
+    }
 
     @Test
     @Order(value = 4)
@@ -201,7 +228,8 @@ internal class WalletResponseDirectPostWithIdTokenAndVpTokenTest {
         val challengeRequestData = prover.createChallengeRequest(jwt)
 
         // when
-        val ephemeralKeys: List<EphemeralKeyResponse> =  WalletApiClient.fetchZkpKeys(client, challengeRequestData, requestId)
+        val ephemeralKeys: List<EphemeralKeyResponse> =
+            WalletApiClient.fetchZkpKeys(client, challengeRequestData, requestId)
         print("This is the $ephemeralKeys")
 
         // then
