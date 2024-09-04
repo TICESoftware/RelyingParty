@@ -174,7 +174,7 @@ class PostWalletResponseLive(
             logger.error("Presentation submission missing")
             throw WalletResponseValidationError.MissingVpTokenOrPresentationSubmission()
         }
-        if (responseObject.vpToken !== null) {
+        if (responseObject.vpToken != null) {
             //map through the response and call the proper verification methods for every descriptor
             responseObject.presentationSubmission.descriptorMaps.map { descriptor ->
 
@@ -333,7 +333,7 @@ class PostWalletResponseLive(
                 ephemeralEcPrivateKey = presentation.ephemeralEcPrivateKey,
                 jarmJwt = walletResponse.jarm,
             ).getOrThrow()
-            if (response.state !== walletResponse.state) { throw WalletResponseValidationError.IncorrectStateInJarm() }
+            if (response.state != walletResponse.state) { throw WalletResponseValidationError.IncorrectStateInJarm() }
             response
         }
     }

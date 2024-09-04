@@ -25,12 +25,10 @@ import eu.europa.ec.eudi.verifier.endpoint.domain.RequestId
 import eu.europa.ec.eudi.verifier.endpoint.domain.ResponseCode
 import eu.europa.ec.eudi.verifier.endpoint.domain.TransactionId
 import eu.europa.ec.eudi.verifier.endpoint.port.input.EphemeralKeyResponse
-import eu.europa.ec.eudi.verifier.endpoint.port.input.WalletResponseValidationError
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation
 import org.junit.jupiter.api.TestMethodOrder
-import org.junit.jupiter.api.assertThrows
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -42,7 +40,6 @@ import org.springframework.util.LinkedMultiValueMap
 import org.springframework.util.MultiValueMap
 import software.tice.ZKPGenerator
 import software.tice.ZKPProverSdJwt
-import software.tice.ZKPVerifier
 import java.lang.AssertionError
 import java.security.AlgorithmParameters
 import java.security.KeyPairGenerator
@@ -64,8 +61,6 @@ import kotlin.test.*
 @TestMethodOrder(OrderAnnotation::class)
 @AutoConfigureWebTestClient(timeout = Integer.MAX_VALUE.toString()) // used for debugging only
 internal class WalletResponseDirectPostWithIdTokenAndVpTokenTest {
-
-    private val log: Logger = LoggerFactory.getLogger(WalletResponseDirectPostWithIdTokenAndVpTokenTest::class.java)
 
     @Autowired
     private lateinit var client: WebTestClient
@@ -176,10 +171,8 @@ internal class WalletResponseDirectPostWithIdTokenAndVpTokenTest {
         val transactionInitialized = VerifierApiClient.initTransaction(client, initTransaction)
         val requestId =
             RequestId(transactionInitialized.requestUri?.removePrefix("http://localhost:0/wallet/request.jwt/")!!)
-        val presentationId = TransactionId(transactionInitialized.transactionId)
         WalletApiClient.getRequestObject(client, transactionInitialized.requestUri!!)
 
-        // check whole zkp flow
         // create challenge data
         val parameters = AlgorithmParameters.getInstance("EC")
         parameters.init(ECGenParameterSpec("secp256r1"))

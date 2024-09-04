@@ -1,26 +1,21 @@
 package eu.europa.ec.eudi.verifier.endpoint.adapter.input.web
 
-import arrow.core.Either
-import arrow.core.Option
-import arrow.core.getOrElse
-import arrow.core.raise.Raise
-import arrow.core.raise.either
+import arrow.core.Some
+import com.nimbusds.jose.crypto.ECDSAVerifier
 import com.nimbusds.jose.jwk.ECKey
-import com.nimbusds.oauth2.sdk.Request
 import eu.europa.ec.eudi.prex.*
+import eu.europa.ec.eudi.sdjwt.*
 import eu.europa.ec.eudi.verifier.endpoint.domain.*
 import eu.europa.ec.eudi.verifier.endpoint.domain.Presentation.RequestObjectRetrieved
 import eu.europa.ec.eudi.verifier.endpoint.port.input.*
 import eu.europa.ec.eudi.verifier.endpoint.port.out.cfg.*
 import eu.europa.ec.eudi.verifier.endpoint.port.out.jose.VerifyJarmJwtSignature
 import eu.europa.ec.eudi.verifier.endpoint.port.out.persistence.*
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.fail
-import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.Mockito.*
 import org.mockito.kotlin.eq
@@ -36,8 +31,8 @@ import java.security.interfaces.ECPrivateKey
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
-import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.test.assertEquals
 
 
 class ZkpTests {
@@ -51,16 +46,7 @@ class ZkpTests {
     private lateinit var verifyJarmJwtSignature: VerifyJarmJwtSignature
 
     @Mock
-    private lateinit var clock: Clock
-
-    @Mock
     private lateinit var verifierConfig: VerifierConfig
-
-    @Mock
-    private lateinit var generateResponseCode: GenerateResponseCode
-
-    @Mock
-    private lateinit var createQueryWalletResponseRedirectUri: CreateQueryWalletResponseRedirectUri
 
     @Mock
     private lateinit var getIssuerEcKey: ECKey
@@ -68,60 +54,39 @@ class ZkpTests {
     @Mock
     private lateinit var zkpVerifier: ZKPVerifier
 
+    private lateinit var postWalletResponseLive: PostWalletResponseLive
+    private lateinit var privateKey: ECPrivateKey
+    private lateinit var zkpKeys: ConcurrentHashMap<String, ECPrivateKey>
+    private lateinit var presentation: RequestObjectRetrieved
 
     @BeforeEach
     fun setUp() {
         MockitoAnnotations.openMocks(this)
-    }
 
-
-    @Test
-    fun `should call zkpVerifier verifyChallenge for vc+sd-jwt+zkp format`() = runTest {
-        // Generate KeyPair for zkp
-        val keyPairGenerator: KeyPairGenerator = KeyPairGenerator.getInstance("EC")
-        keyPairGenerator.initialize(256)
-        val keyPair: KeyPair = keyPairGenerator.generateKeyPair()
-        val privateKey = keyPair.private
-        val hashMapkeys: ConcurrentHashMap<String, ECPrivateKey> = ConcurrentHashMap()
-        hashMapkeys["1"] = privateKey as ECPrivateKey
-        val zkpKeys: ConcurrentHashMap<String, ECPrivateKey> = ConcurrentHashMap<String, ECPrivateKey>().apply {
-            put("id", privateKey)
-        }
         // Mock time
         val fixedInstant = Instant.parse("2023-01-01T00:00:00Z")
         val fixedClock = Clock.fixed(fixedInstant, ZoneId.of("UTC"))
 
-//        // generate fixed response code
+        // generate fixed response code
         val fixedResponseCode = ResponseCode("test")
         val generateResponseCode: GenerateResponseCode = GenerateResponseCode.fixed(fixedResponseCode)
 
-        // mock postWalletResponseLive
 
-        val transactionId = TransactionId("transactionId")
-        val instant = Instant.now()
-        val presentationType: PresentationType = PresentationType.IdAndVpToken(
-            idTokenType = listOf(IdTokenType.SubjectSigned), presentationDefinition = PresentationDefinition(name = null, id = Id("id"), inputDescriptors = listOf(
-                InputDescriptor(constraints = Constraints.LimitDisclosure.PREFERRED, id = InputDescriptorId("id"))
-            ))
-        )
-        val redirectUriTemplate = "http://localhost:0/wallet-redirect#response_code=${CreateQueryWalletResponseRedirectUri.RESPONSE_CODE_PLACE_HOLDER}"
-        val requestId = RequestId("requestId")
-        val nonce = Nonce("nonce")
-        val responseMode = ResponseModeOption.DirectPost
-        val getWalletResponseMethod: GetWalletResponseMethod.Redirect =
-            GetWalletResponseMethod.Redirect(redirectUriTemplate)
-
-        // Create a real implementation of CreateQueryWalletResponseRedirectUri for the test
+        // Override CreateQueryWalletResponseRedirectUri for the test
         val createQueryWalletResponseRedirectUri = object : CreateQueryWalletResponseRedirectUri {
             override fun redirectUri(template: String, responseCode: ResponseCode): Result<URL> = runCatching {
-                URL(template.replace(CreateQueryWalletResponseRedirectUri.RESPONSE_CODE_PLACE_HOLDER, responseCode.value))
+                URI(
+                    template.replace(
+                        CreateQueryWalletResponseRedirectUri.RESPONSE_CODE_PLACE_HOLDER, responseCode.value
+                    )
+                ).toURL()
             }
 
             override fun GetWalletResponseMethod.Redirect.redirectUri(responseCode: ResponseCode): URL =
                 redirectUri(redirectUriTemplate, responseCode).getOrThrow()
         }
 
-        val postWalletResponseLive = PostWalletResponseLive(
+        postWalletResponseLive = PostWalletResponseLive(
             loadPresentationByRequestId,
             storePresentation,
             verifyJarmJwtSignature,
@@ -133,8 +98,34 @@ class ZkpTests {
             zkpVerifier
         )
 
+        // Generate KeyPair for zkp
+        val keyPairGenerator: KeyPairGenerator = KeyPairGenerator.getInstance("EC")
+        keyPairGenerator.initialize(256)
+        val keyPair: KeyPair = keyPairGenerator.generateKeyPair()
+        privateKey = keyPair.private as ECPrivateKey
+        val hashMapkeys: ConcurrentHashMap<String, ECPrivateKey> = ConcurrentHashMap()
+        hashMapkeys["1"] = privateKey as ECPrivateKey
+        zkpKeys = ConcurrentHashMap<String, ECPrivateKey>().apply {
+            put("id", privateKey)
+        }
 
-        val presentation = RequestObjectRetrieved(
+        // mock presentation
+        val transactionId = TransactionId("transactionId")
+        val instant = Instant.now()
+        val presentationType: PresentationType = PresentationType.IdAndVpToken(
+            idTokenType = listOf(IdTokenType.SubjectSigned), presentationDefinition = PresentationDefinition(
+                name = null, id = Id("id"), inputDescriptors = listOf(
+                    InputDescriptor(constraints = Constraints.LimitDisclosure.PREFERRED, id = InputDescriptorId("id"))
+                )
+            )
+        )
+        val redirectUriTemplate =
+            "http://localhost:0/wallet-redirect#response_code=${CreateQueryWalletResponseRedirectUri.RESPONSE_CODE_PLACE_HOLDER}"
+        val requestId = RequestId("requestId")
+        val nonce = Nonce("nonce")
+        val responseMode = ResponseModeOption.DirectPost
+
+        presentation = RequestObjectRetrieved(
             id = transactionId,
             initiatedAt = instant,
             type = presentationType,
@@ -146,7 +137,10 @@ class ZkpTests {
             getWalletResponseMethod = GetWalletResponseMethod.Redirect(redirectUriTemplate),
             zkpKeys = zkpKeys
         )
+    }
 
+    @Test
+    fun `should call zkpVerifier verifyChallenge for vc+sd-jwt+zkp format`() = runTest {
         val jsonContent = TestUtils.loadResource("02-presentationSubmissionSdJwtZkp.json")
         val presentationSubmission = Json.decodeFromString<PresentationSubmission>(jsonContent)
 
@@ -159,50 +153,61 @@ class ZkpTests {
             )
         )
 
-        val walletResponse = WalletResponse.IdToken(idToken = "idToken")
+        whenever(loadPresentationByRequestId.invoke(RequestId("state"))).thenReturn(presentation)
+        whenever(zkpVerifier.verifyChallenge(eq(VpTokenFormat.SDJWT), eq("vpToken"), eq(privateKey))).thenReturn(true)
 
-//
-        val submittedPresentation = Presentation.Submitted(
-            id = transactionId,
-            initiatedAt = fixedInstant,
-            type = presentationType,
-            walletResponse = walletResponse,
-            nonce = nonce,
-            requestId = RequestId("id"),
-            requestObjectRetrievedAt = fixedInstant,
-            responseCode = fixedResponseCode,
-            submittedAt = fixedInstant
+        val result = postWalletResponseLive.invoke(authorizationResponse)
+
+        verify(zkpVerifier).verifyChallenge(
+            eq(VpTokenFormat.SDJWT),
+            eq("vpToken"),
+            eq(privateKey),
+        )
+        assert(result is Some, { "Expected result to be Some, but was None" })
+        result.fold({ fail("Expected Some, but was None") }, { acceptedTO ->
+            assertEquals(
+                "http://localhost:0/wallet-redirect#response_code=test",
+                acceptedTO.redirectUri,
+                "Redirect URI does not match expected value"
+            )
+        })
+    }
+
+    @Test
+    fun `should call zkpVerifier verifyChallenge for mso_mdoc-jwt+zkp format`() = runTest {
+        val jsonContent = TestUtils.loadResource("02-presentationSubmissionMdocZkp.json")
+        val presentationSubmission = Json.decodeFromString<PresentationSubmission>(jsonContent)
+
+        val json = TestUtils.loadResource("02-vpTokenMdoc.json")
+        val vpToken = Json.decodeFromString<String>(json)
+
+        val authorizationResponse = AuthorisationResponse.DirectPost(
+            AuthorisationResponseTO(
+                idToken = "idToken",
+                state = "state",
+                vpToken = vpToken,
+                presentationSubmission = presentationSubmission,
+            )
         )
 
-//       whenever(presentation.submit(fixedClock, walletResponse, fixedResponseCode)).thenReturn(
-//           Result.success(submittedPresentation))
-
-
-//        whenever(createQueryWalletResponseRedirectUri.redirectUri(template = redirectUriTemplate, responseCode = fixedResponseCode)).thenAnswer { invocation ->
-//            val template = invocation.getArgument<String>(0)
-//            val responseCode = invocation.getArgument<ResponseCode>(1)
-//            Result.success(URI(template.replace(CreateQueryWalletResponseRedirectUri.RESPONSE_CODE_PLACE_HOLDER, responseCode.value)).toURL())
-//        }
-
         whenever(loadPresentationByRequestId.invoke(RequestId("state"))).thenReturn(presentation)
-        whenever(
-            zkpVerifier.verifyChallenge(
-                eq(VpTokenFormat.SDJWT),
-                eq("vpToken"),
-                eq(privateKey)
-            )
-        ).thenReturn(true)
+        whenever(zkpVerifier.verifyChallenge(eq(VpTokenFormat.MSOMDOC), anyString(), eq(privateKey))).thenReturn(true)
 
-
-        // Act
         val result = postWalletResponseLive.invoke(authorizationResponse)
-        print("this is the result $result")
 
-//        verify(zkpVerifier).verifyChallenge(
-//            eq(VpTokenFormat.SDJWT),
-//            eq("vpToken"),
-//            eq(privateKey),
-//        )
+        verify(zkpVerifier).verifyChallenge(
+            eq(VpTokenFormat.MSOMDOC),
+            anyString(),
+            eq(privateKey),
+        )
 
+        assert(result is Some, { "Expected result to be Some, but was None" })
+        result.fold({ fail("Expected Some, but was None") }, { acceptedTO ->
+            assertEquals(
+                "http://localhost:0/wallet-redirect#response_code=test",
+                acceptedTO.redirectUri,
+                "Redirect URI does not match expected value"
+            )
+        })
     }
 }
