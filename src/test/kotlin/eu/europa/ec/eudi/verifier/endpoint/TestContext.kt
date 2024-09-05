@@ -117,6 +117,7 @@ object TestContext {
 /**
  * Meta annotation to be used with integration tests of [PidIssuerApplication].
  */
+@Suppress("ktlint:standard:max-line-length")
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.RUNTIME)
 @SpringBootTest(

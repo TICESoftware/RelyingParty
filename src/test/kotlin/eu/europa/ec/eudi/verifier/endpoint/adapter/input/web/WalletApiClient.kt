@@ -18,7 +18,6 @@ package eu.europa.ec.eudi.verifier.endpoint.adapter.input.web
 import eu.europa.ec.eudi.verifier.endpoint.domain.RequestId
 import eu.europa.ec.eudi.verifier.endpoint.port.input.ChallengeRequest
 import eu.europa.ec.eudi.verifier.endpoint.port.input.EphemeralKeyResponse
-import eu.europa.ec.eudi.verifier.endpoint.port.input.JwtSecuredAuthorizationRequestTO
 import kotlinx.serialization.json.JsonObject
 import org.json.JSONObject
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -31,8 +30,6 @@ import org.springframework.test.web.reactive.server.expectBody
 import org.springframework.test.web.reactive.server.returnResult
 import org.springframework.util.MultiValueMap
 import org.springframework.web.reactive.function.BodyInserters
-import org.springframework.web.reactive.function.server.ServerRequest
-import reactor.core.publisher.Flux
 import software.tice.ChallengeRequestData
 
 object WalletApiClient {
@@ -172,18 +169,18 @@ object WalletApiClient {
     fun fetchZkpKeys(
         client: WebTestClient,
         challengeRequestData: ChallengeRequestData,
-        requestId: RequestId
+        requestId: RequestId,
     ): List<EphemeralKeyResponse> {
         val requestPayload = arrayOf(
             ChallengeRequest(
                 id = "eu.europa.ec.eudiw.pid.1",
                 digest = challengeRequestData.digest,
                 r = challengeRequestData.r,
-                proofType = "secp256r1-sha256"
-            )
+                proofType = "secp256r1-sha256",
+            ),
         )
 
-       return client.post().uri(WalletApi.ZKP_JWK_SET_PATH, requestId.value)
+        return client.post().uri(WalletApi.ZKP_JWK_SET_PATH, requestId.value)
             .contentType(MediaType.APPLICATION_JSON)
             .accept(MediaType.APPLICATION_JSON)
             .bodyValue(requestPayload)

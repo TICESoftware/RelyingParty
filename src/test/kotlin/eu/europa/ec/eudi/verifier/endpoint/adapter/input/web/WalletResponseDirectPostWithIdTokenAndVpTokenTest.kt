@@ -105,7 +105,6 @@ internal class WalletResponseDirectPostWithIdTokenAndVpTokenTest {
      */
     @Test
     @Order(value = 3)
-
     fun `get wallet response for format vc+sd-jwt - confirm returns 200`() = runTest {
         // given
         val initTransaction = VerifierApiClient.loadInitTransactionTO("02-presentationDefinitionWithRedirect.json")
@@ -132,12 +131,10 @@ internal class WalletResponseDirectPostWithIdTokenAndVpTokenTest {
 
         // then
         assertNotNull(response)
-
     }
 
     @Test
     @Order(value = 4)
-
     fun `get wallet response for format mso_mdoc - confirm returns 200`() = runTest {
         // given
         val initTransaction = VerifierApiClient.loadInitTransactionTO("02-presentationDefinitionWithRedirect.json")
@@ -163,12 +160,10 @@ internal class WalletResponseDirectPostWithIdTokenAndVpTokenTest {
 
         // then
         assertNotNull(response)
-
     }
 
     @Test
     @Order(value = 5)
-
     fun `fetch ephemeral key response for zkp flow - returns list of ephemeral keys`() = runTest {
         // given
         val initTransaction = VerifierApiClient.loadInitTransactionTO("02-presentationDefinitionWithRedirect.json")
@@ -207,7 +202,6 @@ internal class WalletResponseDirectPostWithIdTokenAndVpTokenTest {
         // then
         assertNotNull(ephemeralKeys)
     }
-
 
     /**
      * Verifies that a Transaction expecting a direct_post Wallet response, doesn't accept a direct_post.jwt Wallet response.

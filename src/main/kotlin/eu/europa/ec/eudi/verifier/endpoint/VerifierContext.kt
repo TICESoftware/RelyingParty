@@ -123,9 +123,14 @@ internal fun beans(clock: Clock) = beans {
     }
 
     bean { GenerateResponseCode.Random }
-    bean { PostWalletResponseLive(ref(), ref(), ref(), clock, ref(), ref(), ref(), ref(), createZKPVerifier(
-        getIssuerEcKey(env).toECPublicKey()),
-    ) }
+    bean {
+        PostWalletResponseLive(
+            ref(), ref(), ref(), clock, ref(), ref(), ref(), ref(),
+            createZKPVerifier(
+                getIssuerEcKey(env).toECPublicKey(),
+            ),
+        )
+    }
     bean { GenerateEphemeralEncryptionKeyPairNimbus }
     bean { GetWalletResponseLive(ref()) }
     bean { GetJarmJwksLive(ref()) }
@@ -290,8 +295,8 @@ private fun jarSigningConfig(environment: Environment, clock: Clock): SigningCon
 fun getIssuerEcKey(environment: Environment): ECKey {
     val issuerCert = environment.getRequiredProperty("verifier.issuer.cert")
     val pemKey = "-----BEGIN CERTIFICATE-----\n" +
-            "${issuerCert}\n" +
-            "-----END CERTIFICATE-----"
+        "${issuerCert}\n" +
+        "-----END CERTIFICATE-----"
     val certificateFactory: CertificateFactory =
         CertificateFactory.getInstance("X.509")
     val certificate =

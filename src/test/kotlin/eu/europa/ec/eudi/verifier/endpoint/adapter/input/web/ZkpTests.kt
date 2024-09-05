@@ -1,7 +1,21 @@
+/*
+ * Copyright (c) 2023 European Commission
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package eu.europa.ec.eudi.verifier.endpoint.adapter.input.web
 
 import arrow.core.Some
-import com.nimbusds.jose.crypto.ECDSAVerifier
 import com.nimbusds.jose.jwk.ECKey
 import eu.europa.ec.eudi.prex.*
 import eu.europa.ec.eudi.sdjwt.*
@@ -18,8 +32,8 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.fail
 import org.mockito.Mock
 import org.mockito.Mockito.*
-import org.mockito.kotlin.eq
 import org.mockito.MockitoAnnotations
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.whenever
 import software.tice.VpTokenFormat
 import software.tice.ZKPVerifier
@@ -33,7 +47,6 @@ import java.time.Instant
 import java.time.ZoneId
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.test.assertEquals
-
 
 class ZkpTests {
     @Mock
@@ -71,14 +84,14 @@ class ZkpTests {
         val fixedResponseCode = ResponseCode("test")
         val generateResponseCode: GenerateResponseCode = GenerateResponseCode.fixed(fixedResponseCode)
 
-
         // Override CreateQueryWalletResponseRedirectUri for the test
         val createQueryWalletResponseRedirectUri = object : CreateQueryWalletResponseRedirectUri {
             override fun redirectUri(template: String, responseCode: ResponseCode): Result<URL> = runCatching {
                 URI(
                     template.replace(
-                        CreateQueryWalletResponseRedirectUri.RESPONSE_CODE_PLACE_HOLDER, responseCode.value
-                    )
+                        CreateQueryWalletResponseRedirectUri.RESPONSE_CODE_PLACE_HOLDER,
+                        responseCode.value,
+                    ),
                 ).toURL()
             }
 
@@ -95,7 +108,7 @@ class ZkpTests {
             generateResponseCode,
             createQueryWalletResponseRedirectUri,
             getIssuerEcKey,
-            zkpVerifier
+            zkpVerifier,
         )
 
         // Generate KeyPair for zkp
@@ -104,7 +117,7 @@ class ZkpTests {
         val keyPair: KeyPair = keyPairGenerator.generateKeyPair()
         privateKey = keyPair.private as ECPrivateKey
         val hashMapkeys: ConcurrentHashMap<String, ECPrivateKey> = ConcurrentHashMap()
-        hashMapkeys["1"] = privateKey as ECPrivateKey
+        hashMapkeys["1"] = privateKey
         zkpKeys = ConcurrentHashMap<String, ECPrivateKey>().apply {
             put("id", privateKey)
         }
@@ -113,11 +126,14 @@ class ZkpTests {
         val transactionId = TransactionId("transactionId")
         val instant = Instant.now()
         val presentationType: PresentationType = PresentationType.IdAndVpToken(
-            idTokenType = listOf(IdTokenType.SubjectSigned), presentationDefinition = PresentationDefinition(
-                name = null, id = Id("id"), inputDescriptors = listOf(
-                    InputDescriptor(constraints = Constraints.LimitDisclosure.PREFERRED, id = InputDescriptorId("id"))
-                )
-            )
+            idTokenType = listOf(IdTokenType.SubjectSigned),
+            presentationDefinition = PresentationDefinition(
+                name = null,
+                id = Id("id"),
+                inputDescriptors = listOf(
+                    InputDescriptor(constraints = Constraints.LimitDisclosure.PREFERRED, id = InputDescriptorId("id")),
+                ),
+            ),
         )
         val redirectUriTemplate =
             "http://localhost:0/wallet-redirect#response_code=${CreateQueryWalletResponseRedirectUri.RESPONSE_CODE_PLACE_HOLDER}"
@@ -135,7 +151,7 @@ class ZkpTests {
             ephemeralEcPrivateKey = null,
             responseMode = responseMode,
             getWalletResponseMethod = GetWalletResponseMethod.Redirect(redirectUriTemplate),
-            zkpKeys = zkpKeys
+            zkpKeys = zkpKeys,
         )
     }
 
@@ -150,7 +166,7 @@ class ZkpTests {
                 state = "state",
                 vpToken = "vpToken",
                 presentationSubmission = presentationSubmission,
-            )
+            ),
         )
 
         whenever(loadPresentationByRequestId.invoke(RequestId("state"))).thenReturn(presentation)
@@ -168,7 +184,7 @@ class ZkpTests {
             assertEquals(
                 "http://localhost:0/wallet-redirect#response_code=test",
                 acceptedTO.redirectUri,
-                "Redirect URI does not match expected value"
+                "Redirect URI does not match expected value",
             )
         })
     }
@@ -187,7 +203,7 @@ class ZkpTests {
                 state = "state",
                 vpToken = vpToken,
                 presentationSubmission = presentationSubmission,
-            )
+            ),
         )
 
         whenever(loadPresentationByRequestId.invoke(RequestId("state"))).thenReturn(presentation)
@@ -206,7 +222,7 @@ class ZkpTests {
             assertEquals(
                 "http://localhost:0/wallet-redirect#response_code=test",
                 acceptedTO.redirectUri,
-                "Redirect URI does not match expected value"
+                "Redirect URI does not match expected value",
             )
         })
     }
