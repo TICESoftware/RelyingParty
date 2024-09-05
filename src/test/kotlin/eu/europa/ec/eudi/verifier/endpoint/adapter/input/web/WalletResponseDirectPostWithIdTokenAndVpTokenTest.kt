@@ -29,8 +29,6 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation
 import org.junit.jupiter.api.TestMethodOrder
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient
 import org.springframework.core.annotation.Order
@@ -82,10 +80,13 @@ internal class WalletResponseDirectPostWithIdTokenAndVpTokenTest {
         val presentationId = transactionInitialized.transactionId
         WalletApiClient.getRequestObject(client, transactionInitialized.requestUri!!)
 
+        val json = TestUtils.loadResource("02-vpTokenSdJwt.json")
+        val vpToken = Json.decodeFromString<String>(json)
+
         val formEncodedBody: MultiValueMap<String, Any> = LinkedMultiValueMap()
         formEncodedBody.add("state", requestId.value)
         formEncodedBody.add("id_token", "value 1")
-        formEncodedBody.add("vp_token", TestUtils.loadResource("02-vpTokenSdJwt.json"))
+        formEncodedBody.add("vp_token", vpToken)
         formEncodedBody.add("presentation_submission", TestUtils.loadResource("02-presentationSubmissionSdJwt.json"))
 
         // when
@@ -114,10 +115,13 @@ internal class WalletResponseDirectPostWithIdTokenAndVpTokenTest {
         val presentationId = TransactionId(transactionInitialized.transactionId)
         WalletApiClient.getRequestObject(client, transactionInitialized.requestUri!!)
 
+        val json = TestUtils.loadResource("02-vpTokenSdJwt.json")
+        val vpToken = Json.decodeFromString<String>(json)
+
         val formEncodedBody: MultiValueMap<String, Any> = LinkedMultiValueMap()
         formEncodedBody.add("state", requestId.value)
         formEncodedBody.add("id_token", "value 1")
-        formEncodedBody.add("vp_token", TestUtils.loadResource("02-vpTokenSdJwt.json"))
+        formEncodedBody.add("vp_token", vpToken)
         formEncodedBody.add("presentation_submission", TestUtils.loadResource("02-presentationSubmissionSdJwt.json"))
 
         val result = WalletApiClient.directPostWithResponse(client, formEncodedBody)

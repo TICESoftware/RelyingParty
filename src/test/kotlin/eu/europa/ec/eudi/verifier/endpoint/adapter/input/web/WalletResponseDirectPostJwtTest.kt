@@ -97,11 +97,14 @@ internal class WalletResponseDirectPostJwtTest {
         assertNotNull(ecKey)
 
         // (wallet) generate JWT with claims
+        val json = TestUtils.loadResource("02-vpTokenSdJwt.json")
+        val vpToken = Json.decodeFromString<String>(json)
+
         val pd: JsonElement = Json.decodeFromString(TestUtils.loadResource("02-presentationSubmissionSdJwt.json"))
         val jwtClaims: JWTClaimsSet = buildJsonObject {
             put("state", requestId.value)
             put("id_token", idToken)
-            put("vp_token", TestUtils.loadResource("02-vpTokenSdJwt.json"))
+            put("vp_token", vpToken)
             put("presentation_submission", pd)
         }.run { JWTClaimsSet.parse(Json.encodeToString(this)) }
 
