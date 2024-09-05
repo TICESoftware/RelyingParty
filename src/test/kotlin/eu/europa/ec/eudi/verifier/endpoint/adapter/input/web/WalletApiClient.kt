@@ -15,7 +15,11 @@
  */
 package eu.europa.ec.eudi.verifier.endpoint.adapter.input.web
 
+import eu.europa.ec.eudi.verifier.endpoint.domain.RequestId
+import eu.europa.ec.eudi.verifier.endpoint.port.input.ChallengeRequest
+import eu.europa.ec.eudi.verifier.endpoint.port.input.EphemeralKeyResponse
 import kotlinx.serialization.json.JsonObject
+import org.json.JSONObject
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -23,8 +27,10 @@ import org.springframework.http.MediaType
 import org.springframework.test.web.reactive.server.WebTestClient
 import org.springframework.test.web.reactive.server.WebTestClient.ResponseSpec.ResponseSpecConsumer
 import org.springframework.test.web.reactive.server.expectBody
+import org.springframework.test.web.reactive.server.returnResult
 import org.springframework.util.MultiValueMap
 import org.springframework.web.reactive.function.BodyInserters
+import software.tice.ChallengeRequestData
 
 object WalletApiClient {
 
@@ -94,6 +100,7 @@ object WalletApiClient {
      * - (request) mDocApp to Internet Web Service, flow "12 HTTPs POST to response_uri [section B.3.2.2]
      * - (response) Internet Web Service to mDocApp, flow "14 OK: HTTP 200 with redirect_uri"
      */
+
     fun directPost(
         client: WebTestClient,
         formEncodedBody: MultiValueMap<String, Any>,
@@ -107,6 +114,40 @@ object WalletApiClient {
             // then
             .expectAll(*consumers)
             .expectStatus().isOk()
+    }
+
+    fun directPostWithResponse(
+        client: WebTestClient,
+        formEncodedBody: MultiValueMap<String, Any>,
+    ): String? {
+        val result = client.post().uri(WalletApi.WALLET_RESPONSE_PATH)
+            .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+            .accept(MediaType.APPLICATION_JSON)
+            .body(BodyInserters.fromValue(formEncodedBody))
+            .exchange()
+            .expectStatus().isOk()
+            .returnResult<String>()
+            .responseBody
+            .blockFirst()
+
+        val jsonObject = JSONObject(result)
+
+        val redirectUri = jsonObject.optString("redirect_uri", "")
+
+        return extractResponseCodeFromUri(redirectUri)
+    }
+
+    fun extractResponseCodeFromUri(uri: String): String? {
+        val uriParts = uri.split("#")
+        if (uriParts.size > 1) {
+            val fragment = uriParts[1]
+            val params = fragment.split("&").associate {
+                val (key, value) = it.split("=")
+                key to value
+            }
+            return params["response_code"]
+        }
+        return null
     }
 
     /**
@@ -123,5 +164,30 @@ object WalletApiClient {
             .exchange()
             // then
             .expectStatus().isOk()
+    }
+
+    fun fetchZkpKeys(
+        client: WebTestClient,
+        challengeRequestData: ChallengeRequestData,
+        requestId: RequestId,
+    ): List<EphemeralKeyResponse> {
+        val requestPayload = arrayOf(
+            ChallengeRequest(
+                id = "eu.europa.ec.eudiw.pid.1",
+                digest = challengeRequestData.digest,
+                r = challengeRequestData.r,
+                proofType = "secp256r1-sha256",
+            ),
+        )
+
+        return client.post().uri(WalletApi.ZKP_JWK_SET_PATH, requestId.value)
+            .contentType(MediaType.APPLICATION_JSON)
+            .accept(MediaType.APPLICATION_JSON)
+            .bodyValue(requestPayload)
+            .exchange()
+            .expectStatus().isOk()
+            .expectBody<List<EphemeralKeyResponse>>()
+            .returnResult()
+            .responseBody!!
     }
 }

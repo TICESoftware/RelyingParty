@@ -34,7 +34,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation
 import org.junit.jupiter.api.TestMethodOrder
 import org.slf4j.Logger
@@ -82,7 +81,6 @@ internal class WalletResponseDirectPostJwtTest {
      */
     @Test
     @Order(value = 1)
-    @Disabled // until verification is complete
     fun `direct_post_jwt vp_token end to end`() = runTest {
         // given
         val idToken = "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NkstUiJ9.eyJzdWIiOiJib2IiLCJpc3MiOiJtZSIsImF1ZCI6InlvdSIs"
@@ -99,11 +97,14 @@ internal class WalletResponseDirectPostJwtTest {
         assertNotNull(ecKey)
 
         // (wallet) generate JWT with claims
-        val pd: JsonElement = Json.decodeFromString(TestUtils.loadResource("02-presentationSubmission.json"))
+        val json = TestUtils.loadResource("02-vpTokenSdJwt.json")
+        val vpToken = Json.decodeFromString<String>(json)
+
+        val pd: JsonElement = Json.decodeFromString(TestUtils.loadResource("02-presentationSubmissionSdJwt.json"))
         val jwtClaims: JWTClaimsSet = buildJsonObject {
             put("state", requestId.value)
             put("id_token", idToken)
-            put("vp_token", TestUtils.loadResource("02-vpToken.json"))
+            put("vp_token", vpToken)
             put("presentation_submission", pd)
         }.run { JWTClaimsSet.parse(Json.encodeToString(this)) }
 
@@ -171,8 +172,8 @@ internal class WalletResponseDirectPostJwtTest {
         formEncodedBody.add("state", requestId.value)
         formEncodedBody.add("state", requestId.value)
         formEncodedBody.add("id_token", idToken)
-        formEncodedBody.add("vp_token", TestUtils.loadResource("02-vpToken.json"))
-        formEncodedBody.add("presentation_submission", TestUtils.loadResource("02-presentationSubmission.json"))
+        formEncodedBody.add("vp_token", TestUtils.loadResource("02-vpTokenSdJwt.json"))
+        formEncodedBody.add("presentation_submission", TestUtils.loadResource("02-presentationSubmissionSdJwt.json"))
 
         // send the wallet response
         // we expect the response submission to fail

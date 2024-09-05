@@ -36,6 +36,8 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("io.projectreactor:reactor-test")
+    testImplementation("io.kotest.extensions:kotest-assertions-arrow:1.4.0")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")
     implementation("com.augustcellars.cose:cose-java:1.1.0")
 }
 

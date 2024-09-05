@@ -117,20 +117,14 @@ object TestContext {
 /**
  * Meta annotation to be used with integration tests of [PidIssuerApplication].
  */
+@Suppress("ktlint:standard:max-line-length")
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.RUNTIME)
 @SpringBootTest(
     classes = [VerifierApplication::class],
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = [
-        "ISSUER_CERT=MIIBHjCBxaADAgECAgEBMAoGCCqGSM49B" +
-            "AMCMBcxFTATBgNVBAoTDERvY2tlciwgSW5jLjAeFw0xMzA3MjUw" +
-            "MTEwMjRaFw0xNTA3MjUwMTEwMjRaMBcxFTATBgNVBAoTDERvY2t" +
-            "lciwgSW5jLjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABMolCW" +
-            "AO0iP7tkX/KLjQ9CKeOoHYynBgfFcd1ZGoxcefmIbWjHx29eWI3" +
-            "xlhbjS6ssSxhrw1Kuh5RrASfUCHD7SjAjAAMAoGCCqGSM49BAMC" +
-            "A0gAMEUCIQDRLQTSSeqjsxsb+q4exLStEM7f7/ymBzoUzbXU7wI" +
-            "9AgIgXCWaI++GkopGT8T2qV/3+NL0U+fYM0ZjSNSiwaK3+kA=",
+        "ISSUER_CERT=MIICdDCCAhugAwIBAgIBAjAKBggqhkjOPQQDAjCBiDELMAkGA1UEBhMCREUxDzANBgNVBAcMBkJlcmxpbjEdMBsGA1UECgwUQnVuZGVzZHJ1Y2tlcmVpIEdtYkgxETAPBgNVBAsMCFQgQ1MgSURFMTYwNAYDVQQDDC1TUFJJTkQgRnVua2UgRVVESSBXYWxsZXQgUHJvdG90eXBlIElzc3VpbmcgQ0EwHhcNMjQwNTMxMDgxMzE3WhcNMjUwNzA1MDgxMzE3WjBsMQswCQYDVQQGEwJERTEdMBsGA1UECgwUQnVuZGVzZHJ1Y2tlcmVpIEdtYkgxCjAIBgNVBAsMAUkxMjAwBgNVBAMMKVNQUklORCBGdW5rZSBFVURJIFdhbGxldCBQcm90b3R5cGUgSXNzdWVyMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEOFBq4YMKg4w5fTifsytwBuJf/7E7VhRPXiNm52S3q1ETIgBdXyDK3kVxGxgeHPivLP3uuMvS6iDEc7qMxmvduKOBkDCBjTAdBgNVHQ4EFgQUiPhCkLErDXPLW2/J0WVeghyw+mIwDAYDVR0TAQH/BAIwADAOBgNVHQ8BAf8EBAMCB4AwLQYDVR0RBCYwJIIiZGVtby5waWQtaXNzdWVyLmJ1bmRlc2RydWNrZXJlaS5kZTAfBgNVHSMEGDAWgBTUVhjAiTjoDliEGMl2Yr+ru8WQvjAKBggqhkjOPQQDAgNHADBEAiAbf5TzkcQzhfWoIoyi1VN7d8I9BsFKm1MWluRph2byGQIgKYkdrNf2xXPjVSbjW/U/5S5vAEC5XxcOanusOBroBbU=",
     ],
 )
 @ContextConfiguration(initializers = [BeansDslApplicationContextInitializer::class])

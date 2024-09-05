@@ -15,7 +15,8 @@
  */
 package eu.europa.ec.eudi.verifier.endpoint.adapter.input.web
 
-import arrow.core.getOrElse
+import arrow.core.None
+import arrow.core.Some
 import arrow.core.raise.either
 import com.nimbusds.jose.jwk.JWK
 import com.nimbusds.jose.jwk.JWKSet
@@ -26,7 +27,6 @@ import eu.europa.ec.eudi.verifier.endpoint.domain.RequestId
 import eu.europa.ec.eudi.verifier.endpoint.port.input.*
 import eu.europa.ec.eudi.verifier.endpoint.port.input.QueryResponse.*
 import kotlinx.serialization.SerializationException
-import kotlinx.serialization.json.JsonObject
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.http.MediaType
@@ -108,29 +108,27 @@ class WalletApi(
      * the [AuthorisationResponse], containing the id_token, presentation_submission
      * and the verifiableCredentials
      */
-    private suspend fun handlePostWalletResponse(req: ServerRequest): ServerResponse = try {
+    private suspend fun handlePostWalletResponse(req: ServerRequest): ServerResponse {
         logger.info("Handling PostWalletResponse ...")
-        val walletResponse = req.awaitFormData().walletResponse()
-        val outcome = either { postWalletResponse(walletResponse) }
-        outcome.fold(
-            ifRight = { response ->
-                logger.info("PostWalletResponse processed")
-                logger.info(
-                    response.fold(
-                        { "Verifier UI will poll for Wallet Response" },
-                        { "Wallet must redirect to ${it.redirectUri}" },
-                    ),
-                )
-                ok().json().bodyValueAndAwait(response.getOrElse { JsonObject(emptyMap()) })
-            },
-            ifLeft = { error ->
-                logger.error("$error while handling post of wallet response ")
-                badRequest().buildAndAwait()
-            },
-        )
-    } catch (t: SerializationException) {
-        logger.error("While handling post of wallet response failed to decode JSON", t)
-        badRequest().buildAndAwait()
+        return try {
+            val walletResponse = req.awaitFormData().walletResponse()
+            when (val outcome = postWalletResponse(walletResponse)) {
+                is Some -> {
+                    val response = outcome.value
+                    logger.info("PostWalletResponse processed")
+                    logger.info("Wallet must redirect to ${response.redirectUri}")
+                    ok().json().bodyValueAndAwait(response)
+                }
+
+                is None -> {
+                    logger.info("PostWalletResponse processed. Verifier UI will poll for Wallet Response")
+                    ok().buildAndAwait()
+                }
+            }
+        } catch (e: WalletResponseValidationError) {
+            logger.error("Validation error while handling post of wallet response: ${e.javaClass.simpleName}")
+            badRequest().buildAndAwait()
+        }
     }
 
     private suspend fun handleGetPublicJwkSet(): ServerResponse {
@@ -139,7 +137,7 @@ class WalletApi(
         return ok().contentType(MediaType.parseMediaType(JWKSet.MIME_TYPE)).bodyValueAndAwait(publicJwkSet)
     }
 
-    /**
+/**
      * Handles the GET request for fetching the JWKS to be used for JARM.
      */
     private suspend fun handleGetJarmJwks(request: ServerRequest): ServerResponse {
@@ -152,7 +150,7 @@ class WalletApi(
         }
     }
 
-    /**
+/**
      * Handles the POST request for fetching the ephemeral keys used for the ZKP.
      */
 

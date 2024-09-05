@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 package eu.europa.ec.eudi.verifier.endpoint
+
 import arrow.core.NonEmptyList
 import arrow.core.recover
 import arrow.core.some
@@ -56,10 +57,12 @@ import org.springframework.security.config.web.server.ServerHttpSecurity
 import org.springframework.security.config.web.server.invoke
 import org.springframework.web.cors.CorsConfiguration
 import org.springframework.web.cors.reactive.CorsConfigurationSource
+import software.tice.ZKPVerifier
 import java.io.ByteArrayInputStream
 import java.security.KeyStore
 import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
+import java.security.interfaces.ECPublicKey
 import java.time.Clock
 import java.time.Duration
 import java.util.*
@@ -120,7 +123,14 @@ internal fun beans(clock: Clock) = beans {
     }
 
     bean { GenerateResponseCode.Random }
-    bean { PostWalletResponseLive(ref(), ref(), ref(), clock, ref(), ref(), ref(), ref()) }
+    bean {
+        PostWalletResponseLive(
+            ref(), ref(), ref(), clock, ref(), ref(), ref(), ref(),
+            createZKPVerifier(
+                getIssuerEcKey(env).toECPublicKey(),
+            ),
+        )
+    }
     bean { GenerateEphemeralEncryptionKeyPairNimbus }
     bean { GetWalletResponseLive(ref()) }
     bean { GetJarmJwksLive(ref()) }
@@ -293,6 +303,10 @@ fun getIssuerEcKey(environment: Environment): ECKey {
         certificateFactory.generateCertificate(ByteArrayInputStream(pemKey.toByteArray())) as X509Certificate
     val ecKey = ECKey.parse(certificate)
     return ecKey
+}
+
+fun createZKPVerifier(issuerKey: ECPublicKey): ZKPVerifier {
+    return ZKPVerifier(issuerKey)
 }
 
 private fun verifierConfig(environment: Environment, clock: Clock): VerifierConfig {
